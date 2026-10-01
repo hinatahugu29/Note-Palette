@@ -35,6 +35,7 @@ interface PanelView {
   el: HTMLElement;
   tabsEl: HTMLElement;
   bodyEl: HTMLElement;
+  fontSizeEl: HTMLElement;
   areas: Map<string, HTMLTextAreaElement>;
 }
 
@@ -59,6 +60,9 @@ const searchInfoEl = must<HTMLElement>('search-info');
 const statusEl = must<HTMLElement>('status');
 const layoutBtn = must<HTMLButtonElement>('btn-layout');
 const zoomBtn = must<HTMLButtonElement>('btn-zoom');
+const viewMenu = must<HTMLElement>('view-menu');
+const uniformFontSelect = must<HTMLSelectElement>('uniform-font-size');
+const unifyFontBtn = must<HTMLButtonElement>('btn-unify-font');
 
 function must<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -196,7 +200,7 @@ function layoutAll(): void {
   }
   layoutBtn.textContent = board.view.layout === 'tile' ? 'タイル' : '自由配置';
   boardEl.style.setProperty('--zoom', String(board.view.zoom));
-  zoomBtn.textContent = `${Math.round(board.view.zoom * 100)}%`;
+  zoomBtn.textContent = `表示 ${Math.round(board.view.zoom * 100)}%`;
 }
 
 function topZ(): number {
@@ -222,6 +226,8 @@ function createView(item: Item): PanelView {
   addTab.title = 'タブを追加';
   const spacer = el('div', 'spacer');
   const actions = el('div', 'actions');
+  const fontControl = el('div', 'font-control');
+  const fontSizeEl = el('span', 'font-value', String(item.fontSize));
   const bodyEl = el('div', 'body');
   const resize = el('div', 'resize');
 
@@ -232,8 +238,15 @@ function createView(item: Item): PanelView {
     actions.appendChild(b);
     return b;
   };
-  btn('A−', '文字を小さく', () => changeFont(item, -1));
-  btn('A+', '文字を大きく', () => changeFont(item, +1));
+  const smaller = el('button', undefined, 'A−');
+  smaller.title = 'この付箋の文字を小さくする';
+  smaller.addEventListener('click', (e) => changeFont(item, e.shiftKey ? -2 : -1));
+  const larger = el('button', undefined, 'A+');
+  larger.title = 'この付箋の文字を大きくする';
+  larger.addEventListener('click', (e) => changeFont(item, e.shiftKey ? 2 : 1));
+  fontSizeEl.title = 'この付箋の文字サイズ';
+  fontControl.append(smaller, fontSizeEl, larger);
+  actions.appendChild(fontControl);
   btn('●', '色を変更', () => cycleColor(item));
   const copyBtn = btn('⧉', 'アクティブなタブの本文をクリップボードへコピー', () => {
     const ta = views.get(item.id)?.areas.get(item.activeTab);
@@ -247,7 +260,7 @@ function createView(item: Item): PanelView {
   root.append(header, bodyEl, resize);
   boardEl.appendChild(root);
 
-  const view: PanelView = { item, el: root, tabsEl, bodyEl, areas: new Map() };
+  const view: PanelView = { item, el: root, tabsEl, bodyEl, fontSizeEl, areas: new Map() };
   views.set(item.id, view);
 
   root.addEventListener(
@@ -648,8 +661,23 @@ async function removePanel(item: Item): Promise<void> {
 
 function changeFont(item: Item, delta: number): void {
   item.fontSize = clamp(item.fontSize + delta, 8, 72);
-  views.get(item.id)!.el.style.setProperty('--fs', String(item.fontSize));
+  const view = views.get(item.id)!;
+  view.el.style.setProperty('--fs', String(item.fontSize));
+  view.fontSizeEl.textContent = String(item.fontSize);
   markBoardDirty();
+}
+
+function unifyFontSize(size: number): void {
+  if (board.items.length === 0) return;
+  if (!confirm(`すべての付箋の文字サイズを ${size}px に統一しますか?`)) return;
+  for (const item of board.items) {
+    item.fontSize = size;
+    const view = views.get(item.id);
+    view?.el.style.setProperty('--fs', String(size));
+    if (view) view.fontSizeEl.textContent = String(size);
+  }
+  markBoardDirty();
+  viewMenu.hidden = true;
 }
 
 function cycleColor(item: Item): void {
@@ -821,7 +849,23 @@ function bindGlobalEvents(): void {
     layoutAll();
     markBoardDirty();
   });
-  zoomBtn.addEventListener('click', () => setZoom(1));
+  zoomBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    viewMenu.hidden = !viewMenu.hidden;
+  });
+  must('zoom-out').addEventListener('click', () => setZoom(board.view.zoom / 1.1));
+  must('zoom-reset').addEventListener('click', () => setZoom(1));
+  must('zoom-in').addEventListener('click', () => setZoom(board.view.zoom * 1.1));
+  viewMenu.querySelectorAll<HTMLButtonElement>('[data-zoom]').forEach((button) => {
+    button.addEventListener('click', () => setZoom(Number(button.dataset.zoom)));
+  });
+  uniformFontSelect.addEventListener('change', () => {
+    unifyFontBtn.textContent = `すべてを${uniformFontSelect.value}pxに統一`;
+  });
+  unifyFontBtn.addEventListener('click', () => unifyFontSize(Number(uniformFontSelect.value)));
+  document.addEventListener('click', (e) => {
+    if (!(e.target as HTMLElement).closest('#view-menu-wrap')) viewMenu.hidden = true;
+  });
 
   boardEl.addEventListener('dblclick', (e) => {
     if (e.target !== boardEl) return;
@@ -866,7 +910,9 @@ function bindGlobalEvents(): void {
       e.preventDefault();
       setZoom(1);
     } else if (e.key === 'Escape') {
-      if (document.activeElement === searchEl || query) {
+      if (!viewMenu.hidden) {
+        viewMenu.hidden = true;
+      } else if (document.activeElement === searchEl || query) {
         searchEl.value = '';
         runSearch(true);
         searchEl.blur();

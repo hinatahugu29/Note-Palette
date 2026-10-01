@@ -14,7 +14,37 @@
     <input id="search" type="search" placeholder="検索 (Ctrl+F)" spellcheck="false">
     <span id="search-info"></span>
     <span class="grow"></span>
-    <button id="btn-zoom" title="全体ズーム (Ctrl+ホイール)。クリックで100%に戻す">100%</button>
+    <div id="view-menu-wrap">
+      <button id="btn-zoom" title="表示倍率と文字サイズの設定 (Ctrl+ホイール)">表示 100%</button>
+      <div id="view-menu" class="popover" hidden>
+        <div class="menu-label">表示倍率</div>
+        <div class="zoom-controls">
+          <button id="zoom-out" title="表示を小さく">−</button>
+          <button id="zoom-reset" title="表示を100%に戻す">100%</button>
+          <button id="zoom-in" title="表示を大きく">＋</button>
+        </div>
+        <div class="zoom-presets" aria-label="表示倍率のプリセット">
+          <button data-zoom="0.75">75%</button>
+          <button data-zoom="1">100%</button>
+          <button data-zoom="1.25">125%</button>
+          <button data-zoom="1.5">150%</button>
+        </div>
+        <div class="menu-separator"></div>
+        <div class="menu-label">文字サイズ</div>
+        <div class="font-unify">
+          <select id="uniform-font-size" title="統一後の文字サイズ">
+            <option value="10">10px</option>
+            <option value="12">12px</option>
+            <option value="14" selected>14px</option>
+            <option value="16">16px</option>
+            <option value="18">18px</option>
+            <option value="20">20px</option>
+            <option value="24">24px</option>
+          </select>
+          <button id="btn-unify-font">すべてを14pxに統一</button>
+        </div>
+      </div>
+    </div>
     <span id="status" title="保存状態">読み込み中…</span>
   </div>
   <div id="board"></div>

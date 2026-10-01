@@ -41,6 +41,35 @@ body { display: flex; flex-direction: column; }
   cursor: pointer;
 }
 #toolbar button:hover { background: #3b3e45; }
+#view-menu-wrap { position: relative; }
+#view-menu-wrap > button { min-width: 88px; }
+.popover {
+  position: absolute;
+  right: 0;
+  top: 32px;
+  z-index: 200000;
+  width: 248px;
+  padding: 12px;
+  border: 1px solid #454851;
+  border-radius: 7px;
+  background: #27292e;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.menu-label { margin-bottom: 7px; color: var(--muted); font-size: 12px; }
+.zoom-controls, .zoom-presets, .font-unify { display: flex; gap: 6px; }
+#toolbar .zoom-controls button { flex: 1; font-size: 14px; }
+#toolbar .zoom-controls #zoom-reset { flex: 1.8; font-size: 12px; }
+.zoom-presets { margin-top: 7px; }
+#toolbar .zoom-presets button { flex: 1; padding: 0 4px; font-size: 11px; }
+.menu-separator { height: 1px; margin: 11px 0; background: #3a3c42; }
+.font-unify select {
+  height: 28px;
+  border: 1px solid #454851;
+  border-radius: 4px;
+  background: #111214;
+  color: var(--fg);
+}
+#toolbar .font-unify button { flex: 1; padding: 0 7px; font-size: 11px; }
 #search {
   width: 220px;
   height: 26px;
@@ -139,6 +168,15 @@ body { display: flex; flex-direction: column; }
 }
 .spacer { flex: 1; }
 .actions { display: flex; align-items: center; padding-right: 2px; }
+.font-control { display: flex; align-items: center; }
+.font-value {
+  min-width: 20px;
+  text-align: center;
+  color: #333;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
 .actions button, .add-tab {
   width: 24px;
   height: 24px;
