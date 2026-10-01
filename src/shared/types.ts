@@ -16,6 +16,8 @@ export interface Item {
   z: number;
   color: number;
   fontSize: number;
+  /** 誤操作によるタブ・付箋の削除を防ぐ */
+  pinned: boolean;
   tabs: Tab[];
   activeTab: string;
   /** v3: 独立ウィンドウ化に備えた状態 */
@@ -67,6 +69,8 @@ export interface NoteApi {
   copyText(text: string): Promise<void>;
   /** 保存済み画像をクリップボードへ。失敗時 false */
   copyImage(file: string): Promise<boolean>;
+  /** アクティブなタブを任意の場所へUTF-8テキストとして書き出す。キャンセル時は null */
+  exportText(title: string, text: string): Promise<string | null>;
   /** 終了前に未保存分を書き出す要求を受ける。cb 完了後に自動で完了通知する */
   onFlushRequest(cb: () => Promise<void>): void;
 }

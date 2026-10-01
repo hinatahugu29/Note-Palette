@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ClipboardItem, ipcMain, nativeImage, screen } from 'electron';
+import { app, BrowserWindow, clipboard, ClipboardItem, dialog, ipcMain, nativeImage, screen } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Storage } from './storage';
@@ -111,6 +111,22 @@ ipcMain.handle('save-image', (_e, ext: string, data: ArrayBuffer) => storage.sav
 ipcMain.handle('read-image', (_e, file: string) => storage.readImage(file));
 ipcMain.handle('remove-image', (_e, file: string) => storage.removeImage(file));
 ipcMain.handle('copy-text', (_e, text: string) => clipboard.writeText(String(text)));
+ipcMain.handle('export-text', async (e, title: string, text: string) => {
+  const safeTitle = String(title || 'メモ').replace(/[\\/:*?"<>|]/g, '_').trim() || 'メモ';
+  const win = BrowserWindow.fromWebContents(e.sender) ?? undefined;
+  const options = {
+    title: 'タブをテキストとして保存',
+    defaultPath: `${safeTitle}.txt`,
+    filters: [
+      { name: 'テキストファイル', extensions: ['txt'] },
+      { name: 'すべてのファイル', extensions: ['*'] },
+    ],
+  };
+  const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+  if (result.canceled || !result.filePath) return null;
+  await fs.promises.writeFile(result.filePath, String(text), 'utf8');
+  return result.filePath;
+});
 ipcMain.handle('copy-image', async (_e, file: string) => {
   const bytes = await storage.readImage(file);
   if (!bytes) return false;

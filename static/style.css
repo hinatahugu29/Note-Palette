@@ -83,6 +83,20 @@ body { display: flex; flex-direction: column; }
 #search:focus { border-color: var(--accent); }
 #search-info, #status { color: var(--muted); font-size: 12px; white-space: nowrap; }
 #status.dirty { color: #e0b050; }
+#notice {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 300000;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border: 1px solid #555963;
+  border-radius: 6px;
+  background: #1e1f22;
+  color: var(--fg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+}
 
 /* ---- ボード ---- */
 #board {
@@ -190,6 +204,8 @@ body { display: flex; flex-direction: column; }
 }
 .add-tab { align-self: center; }
 .actions button:hover, .add-tab:hover { background: rgba(255, 255, 255, 0.45); }
+.actions button.pin { opacity: 0.45; }
+.actions button.pin.active { opacity: 1; background: rgba(255, 255, 255, 0.35); }
 
 .body { position: relative; flex: 1; min-height: 0; }
 .body textarea {

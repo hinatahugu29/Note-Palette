@@ -12,6 +12,7 @@ const api: NoteApi = {
   removeImage: (file) => ipcRenderer.invoke('remove-image', file),
   copyText: (text) => ipcRenderer.invoke('copy-text', text),
   copyImage: (file) => ipcRenderer.invoke('copy-image', file),
+  exportText: (title, text) => ipcRenderer.invoke('export-text', title, text),
   onFlushRequest: (cb) => {
     ipcRenderer.on('flush-request', async () => {
       try {

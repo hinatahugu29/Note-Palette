@@ -36,6 +36,7 @@ interface PanelView {
   tabsEl: HTMLElement;
   bodyEl: HTMLElement;
   fontSizeEl: HTMLElement;
+  pinBtn: HTMLButtonElement;
   areas: Map<string, HTMLTextAreaElement>;
 }
 
@@ -58,6 +59,7 @@ const boardEl = must<HTMLElement>('board');
 const searchEl = must<HTMLInputElement>('search');
 const searchInfoEl = must<HTMLElement>('search-info');
 const statusEl = must<HTMLElement>('status');
+const noticeEl = must<HTMLElement>('notice');
 const layoutBtn = must<HTMLButtonElement>('btn-layout');
 const zoomBtn = must<HTMLButtonElement>('btn-zoom');
 const viewMenu = must<HTMLElement>('view-menu');
@@ -83,6 +85,14 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   if (cls) e.className = cls;
   if (text !== undefined) e.textContent = text;
   return e;
+}
+
+let noticeTimer: number | undefined;
+function showNotice(message: string): void {
+  window.clearTimeout(noticeTimer);
+  noticeEl.textContent = message;
+  noticeEl.hidden = false;
+  noticeTimer = window.setTimeout(() => (noticeEl.hidden = true), 1800);
 }
 
 // ---------------------------------------------------------------- 保存(自動・デバウンス)
@@ -247,11 +257,16 @@ function createView(item: Item): PanelView {
   fontSizeEl.title = 'この付箋の文字サイズ';
   fontControl.append(smaller, fontSizeEl, larger);
   actions.appendChild(fontControl);
+  const pinBtn = btn('📌', '', () => togglePin(item));
+  pinBtn.classList.add('pin');
+  pinBtn.classList.toggle('active', item.pinned);
+  pinBtn.title = item.pinned ? '保護を解除' : 'この付箋を閉じないよう保護';
   btn('●', '色を変更', () => cycleColor(item));
   const copyBtn = btn('⧉', 'アクティブなタブの本文をクリップボードへコピー', () => {
     const ta = views.get(item.id)?.areas.get(item.activeTab);
     void api.copyText(ta?.value ?? '').then(() => flashDone(copyBtn));
   });
+  btn('⇩', '現在のタブをテキストとして保存 (Ctrl+S)', () => void exportActiveTab(item));
   btn('⤢', '最大化 / 元に戻す (Esc)', () => toggleMax(item));
   btn('×', 'この付箋を削除(ゴミ箱フォルダへ移動)', () => void removePanel(item));
 
@@ -260,7 +275,7 @@ function createView(item: Item): PanelView {
   root.append(header, bodyEl, resize);
   boardEl.appendChild(root);
 
-  const view: PanelView = { item, el: root, tabsEl, bodyEl, fontSizeEl, areas: new Map() };
+  const view: PanelView = { item, el: root, tabsEl, bodyEl, fontSizeEl, pinBtn, areas: new Map() };
   views.set(item.id, view);
 
   root.addEventListener(
@@ -555,6 +570,7 @@ function addPanel(x?: number, y?: number): void {
     z: top + 1,
     color: n % COLOR_COUNT,
     fontSize: 14,
+    pinned: false,
     tabs: [tab],
     activeTab: tab.id,
     mode: 'board',
@@ -608,12 +624,33 @@ function newTabInActive(): void {
 function closeActiveTab(): void {
   const item = activeItem();
   if (!item) return;
+  if (item.pinned) {
+    showNotice('ピン留め中のため閉じません');
+    return;
+  }
   if (item.tabs.length <= 1) {
     void removePanel(item);
     return;
   }
   const tab = item.tabs.find((t) => t.id === item.activeTab);
   if (tab) void removeTab(item, tab);
+}
+
+function togglePin(item: Item): void {
+  item.pinned = !item.pinned;
+  const view = views.get(item.id)!;
+  view.pinBtn.classList.toggle('active', item.pinned);
+  view.pinBtn.title = item.pinned ? '保護を解除' : 'この付箋を閉じないよう保護';
+  showNotice(item.pinned ? 'この付箋をピン留めしました' : 'ピン留めを解除しました');
+  markBoardDirty();
+}
+
+async function exportActiveTab(item = activeItem()): Promise<void> {
+  if (!item) return;
+  const tab = item.tabs.find((t) => t.id === item.activeTab);
+  if (!tab) return;
+  const savedPath = await api.exportText(tab.title, texts[tab.id] ?? '');
+  if (savedPath) showNotice(`${savedPath.split(/[\\/]/).pop()} に書き出しました`);
 }
 
 function flashDone(b: HTMLButtonElement, mark = '✓'): void {
@@ -624,7 +661,10 @@ function flashDone(b: HTMLButtonElement, mark = '✓'): void {
 
 async function removeTab(item: Item, tab: Tab): Promise<void> {
   if (item.tabs.length <= 1) return;
-  if (hasText([tab]) && !confirm(`タブ「${tab.title}」を削除しますか?\n(本文は保存フォルダ内の trash に移動されます)`)) return;
+  if (
+    (item.pinned || hasText([tab])) &&
+    !confirm(`タブ「${tab.title}」を削除しますか?\n(本文は保存フォルダ内の trash に移動されます)`)
+  ) return;
   await saveNow();
   const view = views.get(item.id)!;
   const idx = item.tabs.indexOf(tab);
@@ -641,7 +681,10 @@ async function removeTab(item: Item, tab: Tab): Promise<void> {
 }
 
 async function removePanel(item: Item): Promise<void> {
-  if (hasText(item.tabs) && !confirm('この付箋を削除しますか?\n(本文は保存フォルダ内の trash に移動されます)')) return;
+  if (
+    (item.pinned || hasText(item.tabs)) &&
+    !confirm('この付箋を削除しますか?\n(本文は保存フォルダ内の trash に移動されます)')
+  ) return;
   await saveNow();
   const view = views.get(item.id)!;
   view.el.remove();
@@ -902,6 +945,9 @@ function bindGlobalEvents(): void {
     } else if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'w') {
       e.preventDefault();
       closeActiveTab();
+    } else if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      void exportActiveTab();
     } else if (e.ctrlKey && e.key.toLowerCase() === 'n') {
       e.preventDefault();
       addPanel();
