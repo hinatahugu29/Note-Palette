@@ -1,0 +1,209 @@
+:root {
+  --bg: #2b2d31;
+  --bar: #1e1f22;
+  --fg: #dcddde;
+  --muted: #8b8e94;
+  --accent: #5b8def;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Segoe UI", "Yu Gothic UI", "Meiryo UI", sans-serif;
+  font-size: 13px;
+}
+
+body { display: flex; flex-direction: column; }
+
+/* ---- ツールバー ---- */
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 10px;
+  background: var(--bar);
+  flex: none;
+}
+#toolbar .grow { flex: 1; }
+#toolbar button {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid #3a3c42;
+  border-radius: 4px;
+  background: #313338;
+  color: var(--fg);
+  cursor: pointer;
+}
+#toolbar button:hover { background: #3b3e45; }
+#search {
+  width: 220px;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid #3a3c42;
+  border-radius: 4px;
+  background: #111214;
+  color: var(--fg);
+  outline: none;
+}
+#search:focus { border-color: var(--accent); }
+#search-info, #status { color: var(--muted); font-size: 12px; white-space: nowrap; }
+#status.dirty { color: #e0b050; }
+
+/* ---- ボード ---- */
+#board {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  --zoom: 1;
+}
+
+/* ---- パネル(付箋) ---- */
+.panel {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border-radius: 6px;
+  background: var(--c2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  color: #222;
+}
+.panel.dim { opacity: 0.28; }
+.panel.flash { box-shadow: 0 0 0 3px var(--accent), 0 2px 8px rgba(0, 0, 0, 0.45); }
+.panel.max { border-radius: 0; }
+.panel.gone { display: none; }
+.panel.tile, .panel.max { transition: none; }
+
+.c0 { --c: #f5e27a; --c2: #fff7c4; }
+.c1 { --c: #f4a9ba; --c2: #ffe3ea; }
+.c2 { --c: #a8dc9f; --c2: #e4f6df; }
+.c3 { --c: #9ccdf5; --c2: #def0ff; }
+.c4 { --c: #f5c48f; --c2: #ffebd3; }
+.c5 { --c: #c5b0f5; --c2: #ece4ff; }
+.c6 { --c: #c4c4c4; --c2: #eeeeee; }
+
+.header {
+  display: flex;
+  align-items: stretch;
+  flex: none;
+  height: 28px;
+  background: var(--c);
+  cursor: grab;
+  user-select: none;
+}
+.panel.tile .header, .panel.max .header { cursor: default; }
+.tabs {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  overflow: hidden;
+}
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 130px;
+  padding: 0 8px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  opacity: 0.6;
+  border-bottom: 2px solid transparent;
+}
+.tab .title { overflow: hidden; text-overflow: ellipsis; }
+.tab:hover { opacity: 0.9; background: rgba(255, 255, 255, 0.3); }
+.tab.active { opacity: 1; background: var(--c2); border-bottom-color: transparent; font-weight: 600; }
+.tab.hit { box-shadow: inset 0 -3px 0 var(--accent); }
+.tab .close {
+  display: none;
+  width: 14px; height: 14px;
+  line-height: 13px;
+  text-align: center;
+  border-radius: 7px;
+  font-size: 11px;
+}
+.tab:hover .close { display: block; }
+.tab .close:hover { background: rgba(0, 0, 0, 0.18); }
+.tab input {
+  width: 90px;
+  font: inherit;
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  outline: none;
+}
+.spacer { flex: 1; }
+.actions { display: flex; align-items: center; padding-right: 2px; }
+.actions button, .add-tab {
+  width: 24px;
+  height: 24px;
+  margin: 0 1px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: #333;
+  font-size: 13px;
+  cursor: pointer;
+}
+.add-tab { align-self: center; }
+.actions button:hover, .add-tab:hover { background: rgba(255, 255, 255, 0.45); }
+
+.body { position: relative; flex: 1; min-height: 0; }
+.body textarea {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 8px 10px;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: #222;
+  font-family: "Cascadia Mono", "BIZ UDGothic", Consolas, monospace;
+  font-size: calc(var(--fs) * 1px * var(--zoom));
+  line-height: 1.5;
+  tab-size: 4;
+  display: none;
+}
+.body textarea.active { display: block; }
+
+.resize {
+  position: absolute;
+  right: 0; bottom: 0;
+  width: 16px; height: 16px;
+  cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, rgba(0, 0, 0, 0.3) 50%, rgba(0, 0, 0, 0.3) 58%, transparent 58%, transparent 70%, rgba(0, 0, 0, 0.3) 70%, rgba(0, 0, 0, 0.3) 78%, transparent 78%);
+}
+.panel.tile .resize, .panel.max .resize { display: none; }
+
+/* ---- 画像アイテム ---- */
+.imgitem {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border-radius: 6px;
+  background: #1e1f22;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+.imgitem .header { background: #3a3c42; height: 24px; }
+.imgitem .actions button { color: #ddd; }
+.imgitem .actions button:hover { background: rgba(255, 255, 255, 0.2); }
+.imgitem img { flex: 1; min-height: 0; width: 100%; object-fit: contain; display: block; }
+.imgitem.max { border-radius: 0; }
+.imgitem.gone { display: none; }
+.imgitem.tile .resize, .imgitem.max .resize { display: none; }
+.imgitem.tile .header, .imgitem.max .header { cursor: default; }
+
+/* ---- タイル並べ替え ---- */
+.dragging { opacity: 0.55; }
+.drop { outline: 3px solid var(--accent); outline-offset: -3px; }
+
+/* ---- アクティブな付箋(Ctrl+T / Ctrl+W の対象) ---- */
+.panel.current { box-shadow: 0 0 0 2px rgba(91, 141, 239, 0.8), 0 2px 8px rgba(0, 0, 0, 0.45); }

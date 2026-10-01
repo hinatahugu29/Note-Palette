@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src blob:">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NotePalette</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="toolbar">
+    <button id="btn-new" title="新しい付箋 (Ctrl+N)">＋ 新規</button>
+    <button id="btn-layout" title="自由配置 / タイル表示の切替">自由配置</button>
+    <input id="search" type="search" placeholder="検索 (Ctrl+F)" spellcheck="false">
+    <span id="search-info"></span>
+    <span class="grow"></span>
+    <button id="btn-zoom" title="全体ズーム (Ctrl+ホイール)。クリックで100%に戻す">100%</button>
+    <span id="status" title="保存状態">読み込み中…</span>
+  </div>
+  <div id="board"></div>
+  <script type="module" src="../dist/renderer/app.js"></script>
+</body>
+</html>

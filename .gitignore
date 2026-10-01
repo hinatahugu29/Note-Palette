@@ -1,0 +1,19 @@
+node_modules/
+dist/
+release/
+
+# Logs and local environment files
+*.log
+.env
+.env.*
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local test artifacts
+*.tmp
+*.bak
+screenshots/

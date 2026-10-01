@@ -1,0 +1,19 @@
+{
+  "name": "notepalette",
+  "version": "0.1.0",
+  "description": "付箋の俯瞰性とNotepad++の不揮発性を兼ね備えたメモアプリ",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json",
+    "start": "npm run build && electron .",
+    "pack": "npm run build && electron-packager . NotePalette --platform=win32 --arch=x64 --out=release --overwrite --prune=true --ignore=\"^/(src|release|tsconfig.*|HANDOVER.md|.gitignore)\""
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "@types/node": "^26.6.3",
+    "electron": "^44.5.1",
+    "typescript": "^7.0.2"
+  }
+}
