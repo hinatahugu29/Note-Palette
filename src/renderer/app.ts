@@ -669,7 +669,6 @@ function changeFont(item: Item, delta: number): void {
 
 function unifyFontSize(size: number): void {
   if (board.items.length === 0) return;
-  if (!confirm(`すべての付箋の文字サイズを ${size}px に統一しますか?`)) return;
   for (const item of board.items) {
     item.fontSize = size;
     const view = views.get(item.id);
