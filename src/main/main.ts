@@ -55,6 +55,7 @@ function createWindow(): void {
     minWidth: 480,
     minHeight: 360,
     title: 'NotePalette',
+    icon: path.join(__dirname, '..', '..', 'アイコン.png'),
     backgroundColor: '#2b2d31',
     autoHideMenuBar: true,
     webPreferences: {
