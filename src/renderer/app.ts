@@ -427,6 +427,11 @@ function layoutAll(): void {
     s.height = `${Math.round(r.h)}px`;
     s.zIndex = isMax ? '100000' : String(box.z);
     el.classList.toggle('max', isMax);
+    const maxBtn = el.querySelector('.max-btn');
+    if (maxBtn) {
+      maxBtn.textContent = isMax ? '⤡' : '⤢';
+      maxBtn.setAttribute('title', isMax ? '元に戻す (Esc)' : '最大化 (Esc で戻る)');
+    }
     el.classList.toggle('gone', maxId !== null && !isMax);
     el.classList.toggle('tile', tiles !== null);
   }
@@ -489,6 +494,8 @@ function createView(item: Item): PanelView {
     const ta = views.get(item.id)?.areas.get(item.activeTab);
     void api.copyText(ta?.value ?? '').then(() => flashDone(copyBtn));
   });
+  const maxBtn = btn('⤢', '最大化 / 元に戻す (Esc)', () => toggleMax(item));
+  maxBtn.classList.add('max-btn');
   const menuBtn = btn('⋯', 'その他の操作', () => openPanelMenu(item, menuBtn));
 
   addTab.addEventListener('click', () => addTabTo(item));
@@ -1096,7 +1103,7 @@ function createImageView(item: ImageItem, bytes: ArrayBuffer): void {
   const copyBtn = btn('⧉', '画像をクリップボードへコピー', () => {
     void api.copyImage(item.file).then((ok) => (ok ? flashDone(copyBtn) : flashDone(copyBtn, '✗')));
   });
-  btn('⤢', '最大化 / 元に戻す (Esc)', () => toggleMax(item));
+  btn('⤢', '最大化 / 元に戻す (Esc)', () => toggleMax(item)).classList.add('max-btn');
   btn('×', 'この画像を削除(ゴミ箱フォルダへ移動)', () => void removeImage(item));
   header.append(spacer, actions);
   root.append(header, img, resize);

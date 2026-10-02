@@ -7,6 +7,14 @@
   window.addEventListener('error', (e) => errors.push(e.message));
   window.addEventListener('unhandledrejection', (e) => errors.push('rejection: ' + e.reason));
 
+  // 非同期処理(保存待ちを含む)の完了を固定待ちではなく条件で待つ
+  const waitFor = async (cond, label) => {
+    for (let i = 0; i < 100; i++) {
+      if (cond()) return;
+      await w(50);
+    }
+    throw new Error('timeout waiting for ' + label);
+  };
   const key = (k, o = {}) => document.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, ...o }));
   const panels = () => [...document.querySelectorAll('#board .panel')];
   const panelByTitle = (t) => panels().find((p) => p.querySelector('.item-title').textContent === t);
@@ -70,7 +78,8 @@
     key('t', { ctrlKey: true });
     await w(150);
     key('d', { ctrlKey: true });
-    await w(200);
+    await waitFor(() => panelByTitle('付箋 2 のコピー'), '付箋の複製');
+    await w(100);
     steps.afterTabAndDuplicate = summarize();
 
     // Ctrl+Tab でタブ巡回(付箋 2 のコピーがアクティブ。タブは メモ / タブ2)
@@ -124,8 +133,10 @@
     await w(200);
 
     // 最大化 → Esc
-    await clickMenu(p2, 'maximize');
+    p2.querySelector('.max-btn').click();
+    await w(150);
     steps.maximized = panels().filter((p) => p.classList.contains('max')).length;
+    steps.maxButtonLabels = [p2.querySelector('.max-btn').textContent, panelByTitle('付箋 3').querySelector('.max-btn').textContent];
     key('Escape');
     await w(200);
     steps.afterEscape = panels().filter((p) => p.classList.contains('max')).length;
@@ -133,10 +144,10 @@
     // 空の付箋の削除 → ゴミ箱に載る
     const p4 = panelByTitle(initialTitles[0]);
     await clickMenu(p4, 'delete');
-    await w(400);
+    await waitFor(() => panels().length === 4, '付箋の削除');
     steps.afterDelete = panels().length;
     document.getElementById('btn-trash').click();
-    await w(400);
+    await waitFor(() => document.querySelectorAll('#trash-list > *').length > 0, 'ゴミ箱一覧');
     steps.trashEntries = document.querySelectorAll('#trash-list > *').length;
     document.getElementById('trash-close').click();
     await w(100);

@@ -566,6 +566,10 @@
     "dimmed": 3
   },
   "maximized": 1,
+  "maxButtonLabels": [
+    "⤡",
+    "⤢"
+  ],
   "afterEscape": 0,
   "afterDelete": 4,
   "trashEntries": 1,
