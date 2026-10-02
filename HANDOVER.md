@@ -92,6 +92,7 @@ npm run pack       # release/NotePalette-win32-x64/NotePalette.exe を生成(@el
 ```
 - 構成: Electron 44 + TypeScript 7(バンドラなし。`tsc` のみ)。main は CommonJS、renderer は ES Modules。
 - `src/main/` main プロセス(`storage.ts`=保存層、`preload.ts`=IPC橋渡し)、`src/renderer/app.ts`=UI全体、`src/shared/types.ts`=データモデル、`static/`=HTML/CSS。
+- 将来の軽量化・単独exe化の比較と移植判断は `docs/FUTURE-OPTIONS.md` を参照。
 - 保存先: 配布版はexeと同じ場所の `NotePaletteData\`、開発実行は `%USERPROFILE%\Documents\NotePalette\`(環境変数 `NOTEPALETTE_DATA` で上書き可)。配布版の初回起動時、従来のDocuments側にデータがあればローカルへコピーして引き継ぐ。`board.json` / `items/<itemId>/<tabId>.txt` / `images/` / `backups/`(起動時＋1時間ごとに配置・全本文・画像をスナップショット保存、30世代) / `trash/`(削除はここへ移動) / `window.json`。
 - 配布・別PCへの移動は `NotePalette-win32-x64` フォルダごと行う。`npm run pack` は既存の `NotePaletteData` を一時退避し、再生成後に戻すため、同じrelease上で再ビルドしても利用データを消さない。
 
