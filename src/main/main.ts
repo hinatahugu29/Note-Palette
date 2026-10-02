@@ -7,6 +7,22 @@ import type { ImageItem, Item, Tab } from '../shared/types';
 const dataDir = process.env.NOTEPALETTE_DATA ?? path.join(app.getPath('documents'), 'NotePalette');
 const storage = new Storage(dataDir);
 const windowStateFile = path.join(dataDir, 'window.json');
+const sessionFile = path.join(dataDir, '.session-active');
+let uncleanShutdown = false;
+
+function markSessionStarted(): void {
+  fs.mkdirSync(dataDir, { recursive: true });
+  uncleanShutdown = fs.existsSync(sessionFile);
+  fs.writeFileSync(sessionFile, JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
+}
+
+function markSessionClosed(): void {
+  try {
+    fs.unlinkSync(sessionFile);
+  } catch {
+    /* best effort */
+  }
+}
 
 interface WindowState {
   x?: number;
@@ -79,6 +95,7 @@ function createWindow(): void {
     const finish = () => {
       if (flushed) return;
       flushed = true;
+      markSessionClosed();
       win.close();
     };
     ipcMain.once('flush-done', finish);
@@ -103,7 +120,7 @@ function createWindow(): void {
   }
 }
 
-ipcMain.handle('load', () => storage.load());
+ipcMain.handle('load', async () => ({ ...(await storage.load()), uncleanShutdown }));
 ipcMain.handle('save-board', (_e, board) => storage.saveBoard(board));
 ipcMain.handle('save-tab', (_e, itemId: string, tabId: string, text: string) => storage.saveTab(itemId, tabId, text));
 ipcMain.handle('remove-item', (_e, item: Item) => storage.removeItem(item));
@@ -155,6 +172,9 @@ if (!app.requestSingleInstanceLock()) {
       w.focus();
     }
   });
-  app.whenReady().then(createWindow);
+  app.whenReady().then(() => {
+    markSessionStarted();
+    createWindow();
+  });
   app.on('window-all-closed', () => app.quit());
 }

@@ -56,6 +56,8 @@ export interface LoadResult {
   /** tabId -> 本文 */
   texts: Record<string, string>;
   dataDir: string;
+  /** 前回セッションが終了処理を通らず終わった場合 true */
+  uncleanShutdown?: boolean;
 }
 
 export interface TrashEntry {

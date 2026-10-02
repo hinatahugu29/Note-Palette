@@ -1382,6 +1382,9 @@ async function main(): Promise<void> {
   for (const item of board.items.filter((candidate) => !candidate.archived)) activateTab(item, item.activeTab, false);
   updateStatus();
   statusEl.textContent = '保存済み';
+  if (res.uncleanShutdown) {
+    window.setTimeout(() => showNotice('前回は正常に終了しませんでした。自動保存データから復帰しました'), 250);
+  }
   window.setInterval(() => {
     void saveNow().then(() => api.createBackup());
   }, 60 * 60 * 1000);
