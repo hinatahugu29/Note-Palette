@@ -97,6 +97,15 @@ body { display: flex; flex-direction: column; }
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   white-space: nowrap;
 }
+#notice button {
+  margin-left: 12px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 3px;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+}
 
 /* ---- ボード ---- */
 #board {

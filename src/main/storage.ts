@@ -14,7 +14,7 @@ function assertId(id: string): void {
 function stamp(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${String(d.getMilliseconds()).padStart(3, '0')}`;
 }
 
 export function defaultBoard(): Board {
@@ -118,12 +118,38 @@ export class Storage {
     }
   }
 
+  /** 配置情報と全タブ本文を同じ時点のスナップショットとして保存する */
+  async createBackup(): Promise<void> {
+    try {
+      await fs.access(this.boardFile);
+      const root = path.join(this.dir, 'backups');
+      const target = path.join(root, `snapshot-${stamp()}`);
+      await fs.mkdir(target, { recursive: true });
+      await fs.copyFile(this.boardFile, path.join(target, 'board.json'));
+      try {
+        await fs.cp(path.join(this.dir, 'items'), path.join(target, 'items'), { recursive: true });
+      } catch {
+        /* 本文がまだ無い新規ボード */
+      }
+      const entries = (await fs.readdir(root, { withFileTypes: true }))
+        .filter((e) => e.isDirectory() && e.name.startsWith('snapshot-'))
+        .map((e) => e.name)
+        .sort();
+      for (const name of entries.slice(0, Math.max(0, entries.length - BACKUP_KEEP))) {
+        await fs.rm(path.join(root, name), { recursive: true, force: true });
+      }
+    } catch {
+      /* バックアップは best effort */
+    }
+  }
+
   async load(): Promise<LoadResult> {
     await fs.mkdir(this.dir, { recursive: true });
     let board = await this.readBoardFile(this.boardFile);
     let isNew = false;
 
     if (board) {
+      await this.createBackup();
       await this.backupBoard();
     } else {
       // board.json が無い/壊れている: 壊れた物を退避し、最新バックアップから復旧を試みる
@@ -175,15 +201,34 @@ export class Storage {
   }
 
   /** 削除はゴミ箱フォルダへの移動(完全削除はしない) */
-  private async toTrash(src: string, name: string): Promise<void> {
+  private async toTrash(src: string, name: string): Promise<string | null> {
     try {
       await fs.access(src);
     } catch {
-      return;
+      return null;
     }
     const trash = path.join(this.dir, 'trash');
     await fs.mkdir(trash, { recursive: true });
-    await fs.rename(src, path.join(trash, `${stamp()}-${name}`));
+    const trashName = `${stamp()}-${name}`;
+    await fs.rename(src, path.join(trash, trashName));
+    return trashName;
+  }
+
+  private async fromTrash(trashName: string, dest: string): Promise<boolean> {
+    if (!/^[A-Za-z0-9_.-]{1,200}$/.test(trashName)) throw new Error('invalid trash name');
+    try {
+      await fs.access(dest);
+      return false;
+    } catch {
+      /* 復元先が空いている */
+    }
+    try {
+      await fs.mkdir(path.dirname(dest), { recursive: true });
+      await fs.rename(path.join(this.dir, 'trash', trashName), dest);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private imageFile(file: string): string {
@@ -210,15 +255,23 @@ export class Storage {
     }
   }
 
-  async removeImage(file: string): Promise<void> {
-    await this.toTrash(this.imageFile(file), file);
+  async removeImage(file: string): Promise<string | null> {
+    return this.toTrash(this.imageFile(file), file);
   }
 
-  async removeItem(itemId: string): Promise<void> {
-    await this.toTrash(this.itemDir(itemId), itemId);
+  async removeItem(itemId: string): Promise<string | null> {
+    return this.toTrash(this.itemDir(itemId), itemId);
   }
 
-  async removeTab(itemId: string, tabId: string): Promise<void> {
-    await this.toTrash(this.tabFile(itemId, tabId), `${itemId}-${tabId}.txt`);
+  async removeTab(itemId: string, tabId: string): Promise<string | null> {
+    return this.toTrash(this.tabFile(itemId, tabId), `${itemId}-${tabId}.txt`);
+  }
+
+  restoreItem(trashName: string, itemId: string): Promise<boolean> {
+    return this.fromTrash(trashName, this.itemDir(itemId));
+  }
+
+  restoreTab(trashName: string, itemId: string, tabId: string): Promise<boolean> {
+    return this.fromTrash(trashName, this.tabFile(itemId, tabId));
   }
 }

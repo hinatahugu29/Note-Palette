@@ -60,6 +60,8 @@ const searchEl = must<HTMLInputElement>('search');
 const searchInfoEl = must<HTMLElement>('search-info');
 const statusEl = must<HTMLElement>('status');
 const noticeEl = must<HTMLElement>('notice');
+const noticeTextEl = must<HTMLElement>('notice-text');
+const noticeActionEl = must<HTMLButtonElement>('notice-action');
 const layoutBtn = must<HTMLButtonElement>('btn-layout');
 const zoomBtn = must<HTMLButtonElement>('btn-zoom');
 const viewMenu = must<HTMLElement>('view-menu');
@@ -90,9 +92,30 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
 let noticeTimer: number | undefined;
 function showNotice(message: string): void {
   window.clearTimeout(noticeTimer);
-  noticeEl.textContent = message;
+  noticeTextEl.textContent = message;
+  noticeActionEl.hidden = true;
+  noticeActionEl.onclick = null;
   noticeEl.hidden = false;
   noticeTimer = window.setTimeout(() => (noticeEl.hidden = true), 1800);
+}
+
+function showUndo(message: string, undo: () => Promise<void>): void {
+  window.clearTimeout(noticeTimer);
+  noticeTextEl.textContent = message;
+  noticeActionEl.textContent = '元に戻す';
+  noticeActionEl.hidden = false;
+  noticeActionEl.disabled = false;
+  noticeActionEl.onclick = () => {
+    noticeActionEl.disabled = true;
+    void undo()
+      .then(() => showNotice('元に戻しました'))
+      .catch((err) => {
+        console.error(err);
+        showNotice('元に戻せませんでした');
+      });
+  };
+  noticeEl.hidden = false;
+  noticeTimer = window.setTimeout(() => (noticeEl.hidden = true), 6000);
 }
 
 // ---------------------------------------------------------------- 保存(自動・デバウンス)
@@ -668,6 +691,7 @@ async function removeTab(item: Item, tab: Tab): Promise<void> {
   await saveNow();
   const view = views.get(item.id)!;
   const idx = item.tabs.indexOf(tab);
+  const deletedText = texts[tab.id] ?? '';
   item.tabs.splice(idx, 1);
   view.areas.get(tab.id)?.remove();
   view.areas.delete(tab.id);
@@ -676,8 +700,18 @@ async function removeTab(item: Item, tab: Tab): Promise<void> {
   if (item.activeTab === tab.id) item.activeTab = item.tabs[Math.min(idx, item.tabs.length - 1)].id;
   boardDirty = false;
   await api.saveBoard(board);
-  await api.removeTab(item.id, tab.id);
+  const trashName = await api.removeTab(item.id, tab.id);
   activateTab(item, item.activeTab, false);
+  showUndo(`タブ「${tab.title}」を削除しました`, async () => {
+    item.tabs.splice(Math.min(idx, item.tabs.length), 0, tab);
+    texts[tab.id] = deletedText;
+    ensureArea(view, tab);
+    if (!trashName || !(await api.restoreTab(trashName, item.id, tab.id))) {
+      await api.saveTab(item.id, tab.id, deletedText);
+    }
+    await api.saveBoard(board);
+    activateTab(item, tab.id, true);
+  });
 }
 
 async function removePanel(item: Item): Promise<void> {
@@ -686,6 +720,8 @@ async function removePanel(item: Item): Promise<void> {
     !confirm('この付箋を削除しますか?\n(本文は保存フォルダ内の trash に移動されます)')
   ) return;
   await saveNow();
+  const itemIndex = board.items.indexOf(item);
+  const deletedTexts = Object.fromEntries(item.tabs.map((tab) => [tab.id, texts[tab.id] ?? '']));
   const view = views.get(item.id)!;
   view.el.remove();
   views.delete(item.id);
@@ -697,9 +733,21 @@ async function removePanel(item: Item): Promise<void> {
   }
   boardDirty = false;
   await api.saveBoard(board);
-  await api.removeItem(item.id);
+  const trashName = await api.removeItem(item.id);
   layoutAll();
   runSearch(false);
+  showUndo('付箋を削除しました', async () => {
+    board.items.splice(Math.min(itemIndex, board.items.length), 0, item);
+    Object.assign(texts, deletedTexts);
+    if (!trashName || !(await api.restoreItem(trashName, item.id))) {
+      await Promise.all(item.tabs.map((tab) => api.saveTab(item.id, tab.id, deletedTexts[tab.id])));
+    }
+    createView(item);
+    layoutAll();
+    await api.saveBoard(board);
+    setActive(item);
+    activateTab(item, item.activeTab, true);
+  });
 }
 
 function changeFont(item: Item, delta: number): void {
@@ -1006,6 +1054,9 @@ async function main(): Promise<void> {
   for (const item of board.items) activateTab(item, item.activeTab, false);
   updateStatus();
   statusEl.textContent = '保存済み';
+  window.setInterval(() => {
+    void saveNow().then(() => api.createBackup());
+  }, 60 * 60 * 1000);
 }
 
 void main();

@@ -92,7 +92,7 @@ npm run pack       # release/NotePalette-win32-x64/NotePalette.exe を生成(@el
 ```
 - 構成: Electron 44 + TypeScript 7(バンドラなし。`tsc` のみ)。main は CommonJS、renderer は ES Modules。
 - `src/main/` main プロセス(`storage.ts`=保存層、`preload.ts`=IPC橋渡し)、`src/renderer/app.ts`=UI全体、`src/shared/types.ts`=データモデル、`static/`=HTML/CSS。
-- 保存先: `%USERPROFILE%\Documents\NotePalette\`(環境変数 `NOTEPALETTE_DATA` で上書き可)。`board.json` / `items/<itemId>/<tabId>.txt` / `backups/`(起動時に board.json を世代保存、30世代) / `trash/`(削除はここへ移動) / `window.json`。
+- 保存先: `%USERPROFILE%\Documents\NotePalette\`(環境変数 `NOTEPALETTE_DATA` で上書き可)。`board.json` / `items/<itemId>/<tabId>.txt` / `backups/`(起動時＋1時間ごとにboard.jsonと全本文をスナップショット保存、30世代) / `trash/`(削除はここへ移動) / `window.json`。
 
 ### 実装済み
 - ボード1つ、付箋の自由配置(ドラッグ移動・右下リサイズ、画面内にクランプ)
@@ -112,6 +112,8 @@ npm run pack       # release/NotePalette-win32-x64/NotePalette.exe を生成(@el
 - **ショートカット**: Ctrl+T=アクティブな付箋に新規タブ、Ctrl+W=アクティブなタブを閉じる。**最後の1タブで Ctrl+W すると付箋ごと閉じる**(本文があれば確認、trash に退避)。"アクティブ付箋"=最後にクリック/フォーカスした付箋(青い枠)。無ければ最前面の付箋
 - **ピン留め保護**: 付箋ヘッダーの📌で、Ctrl+Wによるタブ・付箋の削除を防止。クリックによる削除時も確認を表示。状態はboard.jsonへ保存
 - **テキスト書き出し**: Ctrl+Sまたは付箋ヘッダーの⇩で、アクティブなタブをUTF-8の.txtとして任意の場所へ保存(内部の自動保存とは非連携)
+- **削除の取り消し**: 付箋・タブの削除後6秒間「元に戻す」を表示。board.jsonだけでなくtrashへ移動した本文実体も元の場所へ復元
+- **本文バックアップ**: 起動時および起動中1時間ごとに、board.jsonとitems/以下の全本文を同じ世代へ保存。直近30世代を保持
 - Tab キーで字下げ(Notepad++風)、ウィンドウ位置・サイズの復元、多重起動防止
 - 開発用フック: `NOTEPALETTE_SCREENSHOT=<png>`(+`NOTEPALETTE_SCRIPT=<js>`)で、スクリプト実行後に画面をPNG保存して終了(ヘッドレス確認用)
 
@@ -122,7 +124,7 @@ npm run pack       # release/NotePalette-win32-x64/NotePalette.exe を生成(@el
 ### 既知の制約 / メモ
 - Electron 44 の clipboard は async の W3C 風 API(writeText / write(ClipboardItem[]))。writeImage は無い。
 - 画像の削除・追加の確認は合成イベント(ドロップ)で実施。実際のクリップボード貼り付けは未確認。
-- 本文テキストはバックアップ対象外(board.json のみ世代保存)。削除時は trash に退避される。
+- 削除時は trash に退避され、直後なら画面下の「元に戻す」で復元できる。古いtrashを一覧・復元する専用画面は未実装。
 - タブごとに textarea を保持するため、タブ切替後も undo 履歴が保たれる。
 - 自動テストは未整備。
 - TypeScript 7 では `moduleResolution: node10` が廃止されているため main は `node16` を使用。

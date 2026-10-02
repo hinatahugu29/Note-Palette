@@ -59,12 +59,16 @@ export interface NoteApi {
   load(): Promise<LoadResult>;
   saveBoard(board: Board): Promise<void>;
   saveTab(itemId: string, tabId: string, text: string): Promise<void>;
-  removeItem(itemId: string): Promise<void>;
-  removeTab(itemId: string, tabId: string): Promise<void>;
+  removeItem(itemId: string): Promise<string | null>;
+  removeTab(itemId: string, tabId: string): Promise<string | null>;
+  restoreItem(trashName: string, itemId: string): Promise<boolean>;
+  restoreTab(trashName: string, itemId: string, tabId: string): Promise<boolean>;
+  /** board.json と全タブ本文の世代バックアップを作る */
+  createBackup(): Promise<void>;
   /** 画像を images/ に保存し、保存名を返す */
   saveImage(ext: string, data: ArrayBuffer): Promise<string>;
   readImage(file: string): Promise<ArrayBuffer | null>;
-  removeImage(file: string): Promise<void>;
+  removeImage(file: string): Promise<string | null>;
   /** クリップボードの先頭へ置く */
   copyText(text: string): Promise<void>;
   /** 保存済み画像をクリップボードへ。失敗時 false */

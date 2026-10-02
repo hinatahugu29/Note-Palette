@@ -48,7 +48,10 @@
     <span id="status" title="保存状態">読み込み中…</span>
   </div>
   <div id="board"></div>
-  <div id="notice" role="status" aria-live="polite" hidden></div>
+  <div id="notice" role="status" aria-live="polite" hidden>
+    <span id="notice-text"></span>
+    <button id="notice-action" hidden>元に戻す</button>
+  </div>
   <script type="module" src="../dist/renderer/app.js"></script>
 </body>
 </html>
