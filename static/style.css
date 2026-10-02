@@ -41,6 +41,7 @@ body { display: flex; flex-direction: column; }
   cursor: pointer;
 }
 #toolbar button:hover { background: #3b3e45; }
+#btn-trash { width: 30px; padding: 0; }
 #view-menu-wrap, #help-wrap { position: relative; }
 #help-wrap > button { width: 28px; padding: 0; }
 #help-menu { width: 280px; }
@@ -299,6 +300,48 @@ body { display: flex; flex-direction: column; }
 }
 #panel-menu button:hover { background: #3b3e45; }
 #panel-menu button.danger { color: #ff9a9a; }
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 400000;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+.dialog-backdrop[hidden] { display: none; }
+.dialog {
+  width: min(560px, calc(100vw - 40px));
+  max-height: min(620px, calc(100vh - 40px));
+  padding: 14px;
+  overflow: hidden;
+  border: 1px solid #4a4d55;
+  border-radius: 8px;
+  background: #27292e;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+.dialog > header { display: flex; align-items: center; }
+.dialog h2 { flex: 1; margin: 0; font-size: 17px; }
+.dialog > header button {
+  width: 28px; height: 28px; border: none; border-radius: 4px;
+  background: transparent; color: var(--fg); cursor: pointer;
+}
+.dialog > p { margin: 8px 0 12px; color: var(--muted); }
+#trash-list { max-height: 480px; overflow-y: auto; }
+.trash-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-top: 1px solid #3a3c42;
+}
+.trash-info { flex: 1; min-width: 0; }
+.trash-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trash-meta { margin-top: 2px; color: var(--muted); font-size: 11px; }
+.trash-row button {
+  padding: 5px 10px; border: 1px solid #4a4d55; border-radius: 4px;
+  background: #313338; color: var(--fg); cursor: pointer;
+}
+.trash-empty { padding: 30px; color: var(--muted); text-align: center; }
 
 .body { position: relative; flex: 1; min-height: 0; }
 .body textarea {

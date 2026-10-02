@@ -1,11 +1,17 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import type { Board, LoadResult } from '../shared/types';
+import type { Board, ImageItem, Item, LoadResult, Tab, TrashEntry, TrashRestoreResult } from '../shared/types';
 
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const BACKUP_KEEP = 30;
 const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp']);
 const IMAGE_FILE_RE = /^[A-Za-z0-9_-]+\.[a-z0-9]{2,4}$/;
+const TRASH_NAME_RE = /^[A-Za-z0-9_.-]{1,200}$/;
+
+type TrashMeta =
+  | { kind: 'item'; title: string; deletedAt: string; item: Item }
+  | { kind: 'tab'; title: string; deletedAt: string; itemId: string; tab: Tab }
+  | { kind: 'image'; title: string; deletedAt: string; image: ImageItem };
 
 function assertId(id: string): void {
   if (!ID_RE.test(id)) throw new Error(`invalid id: ${id}`);
@@ -50,6 +56,7 @@ const WELCOME_TEXT =
   '・付箋のヘッダーをダブルクリックで最大化(Esc で戻る)\n' +
   '・付箋タイトルはダブルクリックで変更、Ctrl+D で付箋を複製\n' +
   '・📌で付箋を閉じないよう保護、Ctrl+S で現在のタブを書き出し\n' +
+  '・削除直後は「元に戻す」、後から戻す場合は上部の🗑\n' +
   '・Ctrl+ホイールで全体ズーム、Ctrl+F で検索\n' +
   '・入力は自動で保存されます\n';
 
@@ -205,8 +212,13 @@ export class Storage {
     return this.writeAtomic(this.tabFile(itemId, tabId), text);
   }
 
-  /** 削除はゴミ箱フォルダへの移動(完全削除はしない) */
-  private async toTrash(src: string, name: string): Promise<string | null> {
+  private trashEntry(trashName: string): string {
+    if (!TRASH_NAME_RE.test(trashName)) throw new Error('invalid trash name');
+    return path.join(this.dir, 'trash', trashName);
+  }
+
+  /** 復元情報と実体を1つのディレクトリへまとめてゴミ箱へ移す */
+  private async toTrash(src: string, meta: TrashMeta): Promise<string | null> {
     try {
       await fs.access(src);
     } catch {
@@ -214,13 +226,20 @@ export class Storage {
     }
     const trash = path.join(this.dir, 'trash');
     await fs.mkdir(trash, { recursive: true });
-    const trashName = `${stamp()}-${name}`;
-    await fs.rename(src, path.join(trash, trashName));
-    return trashName;
+    const trashName = `${stamp()}-${meta.kind}-${Math.random().toString(36).slice(2, 8)}`;
+    const entry = this.trashEntry(trashName);
+    try {
+      await fs.mkdir(entry);
+      await fs.writeFile(path.join(entry, 'meta.json'), JSON.stringify(meta, null, 2), 'utf8');
+      await fs.rename(src, path.join(entry, 'content'));
+      return trashName;
+    } catch (err) {
+      await fs.rm(entry, { recursive: true, force: true });
+      throw err;
+    }
   }
 
   private async fromTrash(trashName: string, dest: string): Promise<boolean> {
-    if (!/^[A-Za-z0-9_.-]{1,200}$/.test(trashName)) throw new Error('invalid trash name');
     try {
       await fs.access(dest);
       return false;
@@ -229,10 +248,20 @@ export class Storage {
     }
     try {
       await fs.mkdir(path.dirname(dest), { recursive: true });
-      await fs.rename(path.join(this.dir, 'trash', trashName), dest);
+      const entry = this.trashEntry(trashName);
+      await fs.rename(path.join(entry, 'content'), dest);
+      await fs.rm(entry, { recursive: true, force: true });
       return true;
     } catch {
       return false;
+    }
+  }
+
+  private async readTrashMeta(trashName: string): Promise<TrashMeta | null> {
+    try {
+      return JSON.parse(await fs.readFile(path.join(this.trashEntry(trashName), 'meta.json'), 'utf8')) as TrashMeta;
+    } catch {
+      return null;
     }
   }
 
@@ -260,20 +289,36 @@ export class Storage {
     }
   }
 
-  async removeImage(file: string): Promise<string | null> {
-    return this.toTrash(this.imageFile(file), file);
+  async removeImage(image: ImageItem): Promise<string | null> {
+    return this.toTrash(this.imageFile(image.file), {
+      kind: 'image',
+      title: image.file,
+      deletedAt: new Date().toISOString(),
+      image,
+    });
   }
 
   restoreImage(trashName: string, file: string): Promise<boolean> {
     return this.fromTrash(trashName, this.imageFile(file));
   }
 
-  async removeItem(itemId: string): Promise<string | null> {
-    return this.toTrash(this.itemDir(itemId), itemId);
+  async removeItem(item: Item): Promise<string | null> {
+    return this.toTrash(this.itemDir(item.id), {
+      kind: 'item',
+      title: item.title,
+      deletedAt: new Date().toISOString(),
+      item,
+    });
   }
 
-  async removeTab(itemId: string, tabId: string): Promise<string | null> {
-    return this.toTrash(this.tabFile(itemId, tabId), `${itemId}-${tabId}.txt`);
+  async removeTab(itemId: string, tab: Tab): Promise<string | null> {
+    return this.toTrash(this.tabFile(itemId, tab.id), {
+      kind: 'tab',
+      title: tab.title,
+      deletedAt: new Date().toISOString(),
+      itemId,
+      tab,
+    });
   }
 
   restoreItem(trashName: string, itemId: string): Promise<boolean> {
@@ -282,5 +327,43 @@ export class Storage {
 
   restoreTab(trashName: string, itemId: string, tabId: string): Promise<boolean> {
     return this.fromTrash(trashName, this.tabFile(itemId, tabId));
+  }
+
+  async listTrash(): Promise<TrashEntry[]> {
+    try {
+      const names = await fs.readdir(path.join(this.dir, 'trash'));
+      const out: TrashEntry[] = [];
+      for (const name of names) {
+        const meta = await this.readTrashMeta(name);
+        if (meta) out.push({ name, kind: meta.kind, title: meta.title, deletedAt: meta.deletedAt });
+      }
+      return out.sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
+    } catch {
+      return [];
+    }
+  }
+
+  async restoreTrash(trashName: string): Promise<TrashRestoreResult | null> {
+    const meta = await this.readTrashMeta(trashName);
+    if (!meta) return null;
+    if (meta.kind === 'item') {
+      if (!(await this.fromTrash(trashName, this.itemDir(meta.item.id)))) return null;
+      const texts: Record<string, string> = {};
+      for (const tab of meta.item.tabs) {
+        try {
+          texts[tab.id] = await fs.readFile(this.tabFile(meta.item.id, tab.id), 'utf8');
+        } catch {
+          texts[tab.id] = '';
+        }
+      }
+      return { kind: 'item', item: meta.item, texts };
+    }
+    if (meta.kind === 'tab') {
+      if (!(await this.fromTrash(trashName, this.tabFile(meta.itemId, meta.tab.id)))) return null;
+      const text = await fs.readFile(this.tabFile(meta.itemId, meta.tab.id), 'utf8').catch(() => '');
+      return { kind: 'tab', itemId: meta.itemId, tab: meta.tab, text };
+    }
+    if (!(await this.fromTrash(trashName, this.imageFile(meta.image.file)))) return null;
+    return { kind: 'image', image: meta.image };
   }
 }

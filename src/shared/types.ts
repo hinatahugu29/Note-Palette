@@ -56,12 +56,24 @@ export interface LoadResult {
   dataDir: string;
 }
 
+export interface TrashEntry {
+  name: string;
+  kind: 'item' | 'tab' | 'image';
+  title: string;
+  deletedAt: string;
+}
+
+export type TrashRestoreResult =
+  | { kind: 'item'; item: Item; texts: Record<string, string> }
+  | { kind: 'tab'; itemId: string; tab: Tab; text: string }
+  | { kind: 'image'; image: ImageItem };
+
 export interface NoteApi {
   load(): Promise<LoadResult>;
   saveBoard(board: Board): Promise<void>;
   saveTab(itemId: string, tabId: string, text: string): Promise<void>;
-  removeItem(itemId: string): Promise<string | null>;
-  removeTab(itemId: string, tabId: string): Promise<string | null>;
+  removeItem(item: Item): Promise<string | null>;
+  removeTab(itemId: string, tab: Tab): Promise<string | null>;
   restoreItem(trashName: string, itemId: string): Promise<boolean>;
   restoreTab(trashName: string, itemId: string, tabId: string): Promise<boolean>;
   /** board.json と全タブ本文の世代バックアップを作る */
@@ -69,8 +81,10 @@ export interface NoteApi {
   /** 画像を images/ に保存し、保存名を返す */
   saveImage(ext: string, data: ArrayBuffer): Promise<string>;
   readImage(file: string): Promise<ArrayBuffer | null>;
-  removeImage(file: string): Promise<string | null>;
+  removeImage(image: ImageItem): Promise<string | null>;
   restoreImage(trashName: string, file: string): Promise<boolean>;
+  listTrash(): Promise<TrashEntry[]>;
+  restoreTrash(trashName: string): Promise<TrashRestoreResult | null>;
   /** クリップボードの先頭へ置く */
   copyText(text: string): Promise<void>;
   /** 保存済み画像をクリップボードへ。失敗時 false */

@@ -2,6 +2,7 @@ import { app, BrowserWindow, clipboard, ClipboardItem, dialog, ipcMain, nativeIm
 import * as fs from 'fs';
 import * as path from 'path';
 import { Storage } from './storage';
+import type { ImageItem, Item, Tab } from '../shared/types';
 
 const dataDir = process.env.NOTEPALETTE_DATA ?? path.join(app.getPath('documents'), 'NotePalette');
 const storage = new Storage(dataDir);
@@ -105,15 +106,17 @@ function createWindow(): void {
 ipcMain.handle('load', () => storage.load());
 ipcMain.handle('save-board', (_e, board) => storage.saveBoard(board));
 ipcMain.handle('save-tab', (_e, itemId: string, tabId: string, text: string) => storage.saveTab(itemId, tabId, text));
-ipcMain.handle('remove-item', (_e, itemId: string) => storage.removeItem(itemId));
-ipcMain.handle('remove-tab', (_e, itemId: string, tabId: string) => storage.removeTab(itemId, tabId));
+ipcMain.handle('remove-item', (_e, item: Item) => storage.removeItem(item));
+ipcMain.handle('remove-tab', (_e, itemId: string, tab: Tab) => storage.removeTab(itemId, tab));
 ipcMain.handle('restore-item', (_e, trashName: string, itemId: string) => storage.restoreItem(trashName, itemId));
 ipcMain.handle('restore-tab', (_e, trashName: string, itemId: string, tabId: string) => storage.restoreTab(trashName, itemId, tabId));
 ipcMain.handle('create-backup', () => storage.createBackup());
 ipcMain.handle('save-image', (_e, ext: string, data: ArrayBuffer) => storage.saveImage(ext, data));
 ipcMain.handle('read-image', (_e, file: string) => storage.readImage(file));
-ipcMain.handle('remove-image', (_e, file: string) => storage.removeImage(file));
+ipcMain.handle('remove-image', (_e, image: ImageItem) => storage.removeImage(image));
 ipcMain.handle('restore-image', (_e, trashName: string, file: string) => storage.restoreImage(trashName, file));
+ipcMain.handle('list-trash', () => storage.listTrash());
+ipcMain.handle('restore-trash', (_e, trashName: string) => storage.restoreTrash(trashName));
 ipcMain.handle('copy-text', (_e, text: string) => clipboard.writeText(String(text)));
 ipcMain.handle('export-text', async (e, title: string, text: string) => {
   const safeTitle = String(title || 'メモ').replace(/[\\/:*?"<>|]/g, '_').trim() || 'メモ';

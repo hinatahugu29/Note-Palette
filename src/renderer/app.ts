@@ -65,6 +65,8 @@ const noticeEl = must<HTMLElement>('notice');
 const noticeTextEl = must<HTMLElement>('notice-text');
 const noticeActionEl = must<HTMLButtonElement>('notice-action');
 const panelMenuEl = must<HTMLElement>('panel-menu');
+const trashDialogEl = must<HTMLElement>('trash-dialog');
+const trashListEl = must<HTMLElement>('trash-list');
 const layoutBtn = must<HTMLButtonElement>('btn-layout');
 const zoomBtn = must<HTMLButtonElement>('btn-zoom');
 const viewMenu = must<HTMLElement>('view-menu');
@@ -131,6 +133,101 @@ function openPanelMenu(item: Item, anchor: HTMLElement): void {
   const height = panelMenuEl.offsetHeight;
   panelMenuEl.style.left = `${clamp(rect.right - width, 6, window.innerWidth - width - 6)}px`;
   panelMenuEl.style.top = `${clamp(rect.bottom + 3, 6, window.innerHeight - height - 6)}px`;
+}
+
+async function openTrash(): Promise<void> {
+  trashDialogEl.hidden = false;
+  trashListEl.textContent = '';
+  trashListEl.appendChild(el('div', 'trash-empty', '読み込み中…'));
+  const entries = await api.listTrash();
+  trashListEl.textContent = '';
+  if (entries.length === 0) {
+    trashListEl.appendChild(el('div', 'trash-empty', '復元できる項目はありません'));
+    return;
+  }
+  const kindLabel = { item: '付箋', tab: 'タブ', image: '画像' } as const;
+  for (const entry of entries) {
+    const row = el('div', 'trash-row');
+    const info = el('div', 'trash-info');
+    info.append(
+      el('div', 'trash-name', entry.title),
+      el('div', 'trash-meta', `${kindLabel[entry.kind]}・${new Date(entry.deletedAt).toLocaleString('ja-JP')}`),
+    );
+    const restore = el('button', undefined, '復元');
+    restore.addEventListener('click', () => {
+      restore.disabled = true;
+      void restoreTrashEntry(entry.name).then(() => openTrash());
+    });
+    row.append(info, restore);
+    trashListEl.appendChild(row);
+  }
+}
+
+async function restoreTrashEntry(trashName: string): Promise<void> {
+  const result = await api.restoreTrash(trashName);
+  if (!result) {
+    showNotice('復元できませんでした');
+    return;
+  }
+  if (result.kind === 'item') {
+    if (board.items.some((item) => item.id === result.item.id)) {
+      showNotice('同じ付箋があるため復元できません');
+      return;
+    }
+    result.item.z = topZ() + 1;
+    board.items.push(result.item);
+    Object.assign(texts, result.texts);
+    createView(result.item);
+    layoutAll();
+    setActive(result.item);
+    activateTab(result.item, result.item.activeTab, true);
+  } else if (result.kind === 'tab') {
+    let item = board.items.find((candidate) => candidate.id === result.itemId);
+    if (!item) {
+      const { w: bw, h: bh } = boardSize();
+      item = {
+        id: result.itemId,
+        kind: 'panel',
+        title: `復元: ${result.tab.title}`,
+        x: clamp(60, 0, bw - DEFAULT_W),
+        y: clamp(50, 0, bh - DEFAULT_H),
+        w: DEFAULT_W,
+        h: DEFAULT_H,
+        z: topZ() + 1,
+        color: board.items.length % COLOR_COUNT,
+        fontSize: 14,
+        pinned: false,
+        tabs: [],
+        activeTab: result.tab.id,
+        mode: 'board',
+      };
+      board.items.push(item);
+      createView(item);
+    }
+    if (!item.tabs.some((tab) => tab.id === result.tab.id)) item.tabs.push(result.tab);
+    texts[result.tab.id] = result.text;
+    ensureArea(views.get(item.id)!, result.tab);
+    setActive(item);
+    activateTab(item, result.tab.id, true);
+    layoutAll();
+  } else {
+    if (board.images.some((image) => image.id === result.image.id)) {
+      showNotice('同じ画像があるため復元できません');
+      return;
+    }
+    const bytes = await api.readImage(result.image.file);
+    if (!bytes) {
+      showNotice('画像ファイルを読み込めませんでした');
+      return;
+    }
+    result.image.z = topZ() + 1;
+    board.images.push(result.image);
+    createImageView(result.image, bytes);
+    layoutAll();
+  }
+  await api.saveBoard(board);
+  runSearch(false);
+  showNotice('ゴミ箱から復元しました');
 }
 
 // ---------------------------------------------------------------- 保存(自動・デバウンス)
@@ -776,7 +873,7 @@ async function removeTab(item: Item, tab: Tab): Promise<void> {
   if (item.activeTab === tab.id) item.activeTab = item.tabs[Math.min(idx, item.tabs.length - 1)].id;
   boardDirty = false;
   await api.saveBoard(board);
-  const trashName = await api.removeTab(item.id, tab.id);
+  const trashName = await api.removeTab(item.id, tab);
   activateTab(item, item.activeTab, false);
   showUndo(`タブ「${tab.title}」を削除しました`, async () => {
     item.tabs.splice(Math.min(idx, item.tabs.length), 0, tab);
@@ -809,7 +906,7 @@ async function removePanel(item: Item): Promise<void> {
   }
   boardDirty = false;
   await api.saveBoard(board);
-  const trashName = await api.removeItem(item.id);
+  const trashName = await api.removeItem(item);
   layoutAll();
   runSearch(false);
   showUndo('付箋を削除しました', async () => {
@@ -948,7 +1045,7 @@ async function removeImage(item: ImageItem): Promise<void> {
   if (board.view.maximizedId === item.id) board.view.maximizedId = null;
   boardDirty = false;
   await api.saveBoard(board);
-  const trashName = await api.removeImage(item.file);
+  const trashName = await api.removeImage(item);
   layoutAll();
   showUndo('画像を削除しました', async () => {
     let restored = Boolean(trashName && (await api.restoreImage(trashName, item.file)));
@@ -1071,6 +1168,11 @@ function jumpToNextHit(): void {
 
 function bindGlobalEvents(): void {
   must('btn-new').addEventListener('click', () => addPanel());
+  must('btn-trash').addEventListener('click', () => void openTrash());
+  must('trash-close').addEventListener('click', () => (trashDialogEl.hidden = true));
+  trashDialogEl.addEventListener('click', (e) => {
+    if (e.target === trashDialogEl) trashDialogEl.hidden = true;
+  });
   layoutBtn.addEventListener('click', () => {
     board.view.layout = board.view.layout === 'tile' ? 'free' : 'tile';
     layoutAll();
@@ -1163,7 +1265,9 @@ function bindGlobalEvents(): void {
       e.preventDefault();
       setZoom(1);
     } else if (e.key === 'Escape') {
-      if (!helpMenu.hidden) {
+      if (!trashDialogEl.hidden) {
+        trashDialogEl.hidden = true;
+      } else if (!helpMenu.hidden) {
         helpMenu.hidden = true;
       } else if (!viewMenu.hidden) {
         viewMenu.hidden = true;

@@ -119,6 +119,7 @@ npm run pack       # release/NotePalette-win32-x64/NotePalette.exe を生成(@el
 - **付箋の複製**: Ctrl+Dまたは付箋の `⋯` メニューから、全タブと本文を独立したIDで複製
 - **付箋操作メニュー**: ヘッダー過密を避けるため、色・書き出し・複製・最大化・削除は `⋯` に集約。文字サイズ・ピン・コピーは直接表示
 - **ショートカット一覧**: ツールバーの `?` から主要キー操作を確認可能
+- **ゴミ箱画面**: ツールバーの🗑から、過去に削除した付箋・タブ・画像を一覧して復元可能。新形式では復元用メタデータと実体を同じtrashエントリに保存
 - Tab キーで字下げ(Notepad++風)、ウィンドウ位置・サイズの復元、多重起動防止
 - 開発用フック: `NOTEPALETTE_SCREENSHOT=<png>`(+`NOTEPALETTE_SCRIPT=<js>`)で、スクリプト実行後に画面をPNG保存して終了(ヘッドレス確認用)
 
@@ -129,7 +130,7 @@ npm run pack       # release/NotePalette-win32-x64/NotePalette.exe を生成(@el
 ### 既知の制約 / メモ
 - Electron 44 の clipboard は async の W3C 風 API(writeText / write(ClipboardItem[]))。writeImage は無い。
 - 画像の削除・追加の確認は合成イベント(ドロップ)で実施。実際のクリップボード貼り付けは未確認。
-- 削除時は trash に退避され、直後なら画面下の「元に戻す」で復元できる。古いtrashを一覧・復元する専用画面は未実装。
+- 削除時は trash に退避され、直後なら画面下の「元に戻す」、後からならゴミ箱画面で復元できる。構造化ゴミ箱導入前の旧形式ファイルは安全のためそのまま残るが、一覧には表示されない。
 - タブごとに textarea を保持するため、タブ切替後も undo 履歴が保たれる。
 - 自動テストは未整備。
 - TypeScript 7 では `moduleResolution: node10` が廃止されているため main は `node16` を使用。
