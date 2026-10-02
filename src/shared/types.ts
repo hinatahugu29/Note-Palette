@@ -65,6 +65,7 @@ export interface LoadResult {
   dataDir: string;
   /** 前回セッションが終了処理を通らず終わった場合 true */
   uncleanShutdown?: boolean;
+  dataMode?: 'portable' | 'documents' | 'custom';
 }
 
 export interface TrashEntry {

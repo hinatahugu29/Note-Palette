@@ -1,7 +1,7 @@
 # NotePalette HANDOVER
 
-状態: **v1 + v2の一部(スナップ・タイル並べ替え) + v3の一部(画像アイテム) 実装済み**。未着手: 独立ウィンドウ化(ユーザー判断で当面後回し)、ピン留め
-最終更新: 2026-10-01
+状態: **v1 + v2の一部(スナップ・タイル並べ替え) + v3の一部(画像アイテム) 実装済み**。未着手: 独立ウィンドウ化(ユーザー判断で当面後回し)
+最終更新: 2026-10-02
 
 ## 1. コンセプト
 付箋の「俯瞰性」と Notepad++ の「不揮発性」を兼ね備えたメモ管理デスクトップアプリ。
@@ -76,7 +76,6 @@ NotePalette/
 ## 7. 未決・次のステップ
 - 画面ワイヤーフレーム(主画面・タブ操作・最大化表示)の作成
 - 実装計画(v1のタスク分解)
-- 保存先フォルダの場所(既定: アプリのデータフォルダ or ユーザー指定)の決定
 - 全文検索のUI(検索ボックスの位置、ヒット時の見せ方)
 
 ## 8. 備考
@@ -93,7 +92,8 @@ npm run pack       # release/NotePalette-win32-x64/NotePalette.exe を生成(@el
 ```
 - 構成: Electron 44 + TypeScript 7(バンドラなし。`tsc` のみ)。main は CommonJS、renderer は ES Modules。
 - `src/main/` main プロセス(`storage.ts`=保存層、`preload.ts`=IPC橋渡し)、`src/renderer/app.ts`=UI全体、`src/shared/types.ts`=データモデル、`static/`=HTML/CSS。
-- 保存先: `%USERPROFILE%\Documents\NotePalette\`(環境変数 `NOTEPALETTE_DATA` で上書き可)。`board.json` / `items/<itemId>/<tabId>.txt` / `images/` / `backups/`(起動時＋1時間ごとに配置・全本文・画像をスナップショット保存、30世代) / `trash/`(削除はここへ移動) / `window.json`。
+- 保存先: 配布版はexeと同じ場所の `NotePaletteData\`、開発実行は `%USERPROFILE%\Documents\NotePalette\`(環境変数 `NOTEPALETTE_DATA` で上書き可)。配布版の初回起動時、従来のDocuments側にデータがあればローカルへコピーして引き継ぐ。`board.json` / `items/<itemId>/<tabId>.txt` / `images/` / `backups/`(起動時＋1時間ごとに配置・全本文・画像をスナップショット保存、30世代) / `trash/`(削除はここへ移動) / `window.json`。
+- 配布・別PCへの移動は `NotePalette-win32-x64` フォルダごと行う。`npm run pack` は既存の `NotePaletteData` を一時退避し、再生成後に戻すため、同じrelease上で再ビルドしても利用データを消さない。
 
 ### 実装済み
 - ボード1つ、付箋の自由配置(ドラッグ移動・右下リサイズ、画面内にクランプ)

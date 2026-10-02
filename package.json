@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json",
     "test": "npm run build && node --test tests/*.test.js",
     "start": "npm run build && electron .",
-    "pack": "npm run build && electron-packager . NotePalette --platform=win32 --arch=x64 --out=release --overwrite --prune=true --icon=icon.ico --ignore=\"^/(src|release|tsconfig.*|HANDOVER.md|.gitignore)\""
+    "pack": "node scripts/pack.js"
   },
   "license": "UNLICENSED",
   "private": true,

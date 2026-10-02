@@ -5,7 +5,35 @@ import * as path from 'path';
 import { Storage } from './storage';
 import type { ImageItem, Item, Tab } from '../shared/types';
 
-const dataDir = process.env.NOTEPALETTE_DATA ?? path.join(app.getPath('documents'), 'NotePalette');
+function resolveDataLocation(): { dir: string; mode: 'portable' | 'documents' | 'custom' } {
+  if (process.env.NOTEPALETTE_DATA) return { dir: process.env.NOTEPALETTE_DATA, mode: 'custom' };
+  const documentsDir = path.join(app.getPath('documents'), 'NotePalette');
+  if (!app.isPackaged) return { dir: documentsDir, mode: 'documents' };
+
+  const portableDir = path.join(path.dirname(app.getPath('exe')), 'NotePaletteData');
+  const migratingDir = path.join(path.dirname(portableDir), '.NotePaletteData-migrating');
+  try {
+    if (!fs.existsSync(portableDir) && fs.existsSync(path.join(documentsDir, 'board.json'))) {
+      fs.rmSync(migratingDir, { recursive: true, force: true });
+      fs.cpSync(documentsDir, migratingDir, { recursive: true });
+      fs.rmSync(path.join(migratingDir, '.session-active'), { force: true });
+      fs.renameSync(migratingDir, portableDir);
+    }
+    fs.mkdirSync(portableDir, { recursive: true });
+    fs.accessSync(portableDir, fs.constants.W_OK);
+    return { dir: portableDir, mode: 'portable' };
+  } catch {
+    try {
+      fs.rmSync(migratingDir, { recursive: true, force: true });
+    } catch {
+      // A read-only application folder still falls back to Documents below.
+    }
+    return { dir: documentsDir, mode: 'documents' };
+  }
+}
+
+const dataLocation = resolveDataLocation();
+const dataDir = dataLocation.dir;
 const storage = new Storage(dataDir);
 const windowStateFile = path.join(dataDir, 'window.json');
 const sessionFile = path.join(dataDir, '.session-active');
@@ -121,7 +149,7 @@ function createWindow(): void {
   }
 }
 
-ipcMain.handle('load', async () => ({ ...(await storage.load()), uncleanShutdown }));
+ipcMain.handle('load', async () => ({ ...(await storage.load()), uncleanShutdown, dataMode: dataLocation.mode }));
 ipcMain.handle('save-board', (_e, board) => storage.saveBoard(board));
 ipcMain.handle('save-tab', (_e, itemId: string, tabId: string, text: string) => storage.saveTab(itemId, tabId, text));
 ipcMain.handle('remove-item', (_e, item: Item) => storage.removeItem(item));
