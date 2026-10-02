@@ -110,6 +110,7 @@ export interface NoteApi {
   importArchive(): Promise<boolean>;
   exportAllText(): Promise<string | null>;
   openDataFolder(): Promise<string>;
+  openManual(): Promise<string>;
   /** クリップボードの先頭へ置く */
   copyText(text: string): Promise<void>;
   /** 保存済み画像をクリップボードへ。失敗時 false */

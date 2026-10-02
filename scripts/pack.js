@@ -36,8 +36,9 @@ try {
   const packager = path.join(root, 'node_modules', '@electron', 'packager', 'bin', 'electron-packager.mjs');
   run(process.execPath, [packager,
     '.', 'NotePalette', '--platform=win32', '--arch=x64', '--out=release', '--overwrite', '--prune=true',
-    '--icon=icon.ico', '--ignore=^/(src|release|scripts|tests|tsconfig.*|HANDOVER.md|.gitignore)',
+    '--icon=icon.ico', '--ignore=^/(src|release|scripts|tests|docs|tsconfig.*|HANDOVER.md|.gitignore)',
   ]);
+  fs.copyFileSync(path.join(root, 'docs', 'NotePalette-manual.html'), path.join(appDir, 'NotePalette-manual.html'));
   fs.writeFileSync(
     path.join(appDir, 'portable.txt'),
     'NotePalette ポータブル版\r\nメモや設定は、このファイルと同じ場所の NotePaletteData フォルダに保存されます。\r\n配布・移動するときは NotePalette-win32-x64 フォルダごとコピーしてください。\r\n',

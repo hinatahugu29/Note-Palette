@@ -1462,6 +1462,7 @@ function bindGlobalEvents(): void {
     e.stopPropagation();
     helpMenu.hidden = !helpMenu.hidden;
   });
+  must('btn-manual').addEventListener('click', () => void api.openManual());
   must('zoom-out').addEventListener('click', () => setZoom(board.view.zoom / 1.1));
   must('zoom-reset').addEventListener('click', () => setZoom(1));
   must('zoom-in').addEventListener('click', () => setZoom(board.view.zoom * 1.1));

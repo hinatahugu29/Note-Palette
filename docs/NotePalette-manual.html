@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NotePalette 使い方マニュアル</title>
+  <style>
+    :root { color-scheme: light dark; --bg:#f5f6f8; --paper:#fff; --fg:#23262b; --muted:#667085; --line:#d9dde5; --accent:#3867d6; --soft:#edf3ff; }
+    @media (prefers-color-scheme:dark) { :root { --bg:#202226; --paper:#2b2e33; --fg:#eceef2; --muted:#aeb4bf; --line:#444951; --accent:#8cb1ff; --soft:#303b52; } }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.75 "Segoe UI","Yu Gothic UI",Meiryo,sans-serif; }
+    header { padding:40px 24px 30px; color:#fff; background:linear-gradient(135deg,#304b91,#6f54a2); }
+    header div { max-width:960px; margin:auto; }
+    h1 { margin:0 0 5px; font-size:32px; } header p { margin:0; opacity:.9; }
+    main { display:grid; grid-template-columns:210px minmax(0,1fr); gap:26px; max-width:1080px; margin:28px auto 60px; padding:0 20px; }
+    nav { position:sticky; top:18px; align-self:start; padding:16px; border:1px solid var(--line); border-radius:12px; background:var(--paper); }
+    nav strong { display:block; margin-bottom:8px; } nav a { display:block; padding:4px 0; color:var(--accent); text-decoration:none; }
+    article { min-width:0; } section { margin:0 0 22px; padding:24px 28px; border:1px solid var(--line); border-radius:12px; background:var(--paper); }
+    h2 { margin:0 0 13px; font-size:22px; border-bottom:1px solid var(--line); padding-bottom:8px; }
+    h3 { margin:20px 0 6px; font-size:17px; } p,ul,ol { margin:8px 0; } li+li { margin-top:4px; }
+    .lead { font-size:17px; } .note { margin:14px 0; padding:11px 14px; border-left:4px solid var(--accent); background:var(--soft); border-radius:4px; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; } th,td { padding:9px 11px; border:1px solid var(--line); text-align:left; vertical-align:top; } th { background:var(--soft); }
+    kbd { display:inline-block; min-width:25px; padding:1px 6px; border:1px solid #aab0ba; border-bottom-width:2px; border-radius:5px; background:var(--paper); font:13px Consolas,monospace; text-align:center; white-space:nowrap; }
+    code { padding:1px 5px; border-radius:4px; background:var(--soft); } .small { color:var(--muted); font-size:13px; }
+    @media (max-width:760px) { main{display:block} nav{position:static;margin-bottom:20px} section{padding:20px} }
+    @media print { body{background:#fff;color:#000} header{background:none;color:#000;padding:10px 0} main{display:block;margin:0;padding:0} nav{display:none} section{border:0;break-inside:avoid;padding:8px 0;margin:0} }
+  </style>
+</head>
+<body>
+<header><div><h1>NotePalette 使い方マニュアル</h1><p>付箋のように見渡せて、自動で残るメモアプリ</p></div></header>
+<main>
+  <nav><strong>目次</strong><a href="#start">はじめに</a><a href="#notes">付箋とタブ</a><a href="#view">配置と表示</a><a href="#import">ファイル・画像</a><a href="#search">検索</a><a href="#safety">保存と復旧</a><a href="#shortcuts">ショートカット</a><a href="#portable">別PCへの移動</a></nav>
+  <article>
+    <section id="start"><h2>はじめに</h2><p class="lead"><code>NotePalette.exe</code> を起動すればすぐ使えます。入力内容、配置、開いているタブは自動保存されるため、通常の利用で保存操作は不要です。</p><div class="note">上部右端の保存表示が「保存済み」になれば保存完了です。「保存エラー・再試行」と表示された場合は、そこをクリックしてください。</div></section>
+
+    <section id="notes"><h2>付箋とタブ</h2>
+      <h3>付箋を作る</h3><ul><li>上部の「＋ 新規」を押す</li><li>ボードの空いている場所をダブルクリックする</li><li><kbd>Ctrl</kbd>＋<kbd>N</kbd>を押す</li></ul>
+      <h3>付箋を操作する</h3><ul><li>ヘッダーをドラッグ：移動</li><li>右下をドラッグ：大きさの変更</li><li>ヘッダーをダブルクリック：最大化／元に戻す</li><li>タイトルをダブルクリック：タイトル変更</li><li>「⋯」：色変更、書き出し、複製、収納、最大化、削除</li><li>📌：誤って閉じないよう保護</li><li>⧉：現在の本文をクリップボードへコピー</li></ul>
+      <h3>タブを使う</h3><ul><li>タブ列の「＋」または<kbd>Ctrl</kbd>＋<kbd>T</kbd>：新しいタブ</li><li>タブ名をダブルクリック：名前変更</li><li><kbd>Ctrl</kbd>＋<kbd>W</kbd>：現在のタブを閉じる。最後の1タブなら付箋を閉じる</li><li>本文中の<kbd>Tab</kbd>：字下げ</li></ul>
+      <div class="note">青い枠の付箋が、ショートカット操作の対象です。📌をオンにすると、<kbd>Ctrl</kbd>＋<kbd>W</kbd>では閉じなくなります。</div>
+    </section>
+
+    <section id="view"><h2>配置・表示・文字サイズ</h2><ul><li>「自由配置／タイル表示」：好きな配置と自動整列を切り替えます。自由配置の位置は保持されます。</li><li>各付箋の <strong>A−／A＋</strong>：その付箋だけ文字サイズを変更。<kbd>Shift</kbd>を押しながらなら2pxずつ変更します。</li><li>右上の「表示 ○%」：画面全体の倍率変更と、すべての付箋の文字サイズ統一。</li><li><kbd>Ctrl</kbd>＋マウスホイール：画面全体の倍率を素早く変更。</li><li><kbd>Ctrl</kbd>＋<kbd>0</kbd>：表示倍率を100%に戻す。</li></ul></section>
+
+    <section id="import"><h2>外部ファイルと画像</h2>
+      <h3>テキストファイル</h3><p>txt、md、html、css、js、json、csv、logなどを画面へドロップすると、内容を新しい付箋として取り込みます。複数ファイルなら、1つの付箋内の複数タブになります。元ファイルとは連動しないコピーです。</p><p class="small">HTMLやスクリプトは実行せず、文字として表示します。5MB超では確認が入り、50MB超では動作保護のため先頭5MBだけを取り込みます。</p>
+      <h3>画像</h3><p>画像ファイルをドロップするか、画像をコピーして<kbd>Ctrl</kbd>＋<kbd>V</kbd>で貼り付けます。画像も移動・拡大縮小・最大化・削除できます。</p>
+      <h3>外部へ書き出す</h3><p><kbd>Ctrl</kbd>＋<kbd>S</kbd>で現在のタブをUTF-8のテキストファイルとして保存できます。これは任意の場所へ渡すためのコピーで、以後の編集とは連動しません。</p>
+    </section>
+
+    <section id="search"><h2>全文検索</h2><p><kbd>Ctrl</kbd>＋<kbd>F</kbd>で検索欄へ移動します。付箋タイトル、タブ名、本文が検索対象です。結果一覧をクリックするか、<kbd>Enter</kbd>で次の結果へ移動します。<kbd>Esc</kbd>で検索を解除します。</p></section>
+
+    <section id="safety"><h2>保存・収納・復旧</h2><ul><li><strong>▣ 収納</strong>：削除せず、ボードから一時的に隠します。収納一覧から戻せます。</li><li><strong>🗑 ゴミ箱</strong>：削除した付箋、タブ、画像を後から復元できます。削除直後は画面下の「元に戻す」も利用できます。</li><li><strong>⚙ バックアップ履歴</strong>：起動時と約1時間ごとの状態へ戻せます。</li><li><strong>⚙ 全データをZIP保存</strong>：別の場所へ完全なバックアップを作ります。</li><li><strong>⚙ ZIPバックアップを読込</strong>：ZIP保存した状態を復元します。</li><li><strong>⚙ 全付箋をTXTで書き出す</strong>：一般的なファイルとしてまとめて取り出します。</li><li><strong>⚙ 保存場所を開く</strong>：実際のデータフォルダを表示します。</li></ul><div class="note">大切な内容は、ときどき「全データをZIP保存」で別ドライブにもコピーしておくと安心です。</div></section>
+
+    <section id="shortcuts"><h2>ショートカット一覧</h2><table><thead><tr><th>キー</th><th>動作</th></tr></thead><tbody>
+      <tr><td><kbd>Ctrl</kbd>＋<kbd>N</kbd></td><td>新しい付箋</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>T</kbd></td><td>アクティブな付箋に新しいタブ</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>W</kbd></td><td>現在のタブ／付箋を閉じる（ピン留め中は保護）</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>D</kbd></td><td>付箋を複製</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>S</kbd></td><td>現在のタブを外部ファイルへ書き出す</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>F</kbd></td><td>全文検索</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>V</kbd></td><td>コピーした画像を貼り付け</td></tr><tr><td><kbd>Ctrl</kbd>＋ホイール</td><td>画面全体の表示倍率</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>0</kbd></td><td>表示倍率を100%へ戻す</td></tr><tr><td><kbd>Esc</kbd></td><td>検索、最大化、開いている画面を解除</td></tr><tr><td><kbd>Tab</kbd></td><td>本文へ字下げを挿入</td></tr>
+    </tbody></table></section>
+
+    <section id="portable"><h2>別PCへの移動・配布</h2><p><code>NotePalette-win32-x64</code>フォルダを、丸ごとコピーしてください。アプリ本体と、その横に作られる<code>NotePaletteData</code>にメモや設定が入っています。</p><ol><li>NotePaletteを終了する</li><li><code>NotePalette-win32-x64</code>フォルダ全体をUSBメモリなどへコピーする</li><li>別PCでフォルダ内の<code>NotePalette.exe</code>を起動する</li></ol><div class="note"><code>NotePalette.exe</code>だけを取り出すと起動できません。必ずフォルダごと移動してください。</div></section>
+  </article>
+</main>
+</body>
+</html>

@@ -51,6 +51,7 @@ body { display: flex; flex-direction: column; }
   border: none; text-align: left;
 }
 #help-menu { width: 280px; }
+#toolbar #btn-manual { width: 100%; height: auto; padding: 7px 8px; }
 .shortcuts { margin: 0; }
 .shortcuts div { display: flex; gap: 12px; padding: 4px 0; }
 .shortcuts dt { width: 96px; color: #b7cdfb; font-family: Consolas, monospace; }

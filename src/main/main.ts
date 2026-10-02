@@ -198,6 +198,12 @@ ipcMain.handle('export-all-text', async (e) => {
   return storage.exportAllText(result.filePaths[0]);
 });
 ipcMain.handle('open-data-folder', () => shell.openPath(dataDir));
+ipcMain.handle('open-manual', () => {
+  const manualPath = app.isPackaged
+    ? path.join(path.dirname(app.getPath('exe')), 'NotePalette-manual.html')
+    : path.join(app.getAppPath(), 'docs', 'NotePalette-manual.html');
+  return shell.openPath(manualPath);
+});
 ipcMain.handle('copy-text', (_e, text: string) => clipboard.writeText(String(text)));
 ipcMain.handle('export-text', async (e, title: string, text: string) => {
   const safeTitle = String(title || 'メモ').replace(/[\\/:*?"<>|]/g, '_').trim() || 'メモ';

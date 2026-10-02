@@ -22,6 +22,7 @@ const api: NoteApi = {
   importArchive: () => ipcRenderer.invoke('import-archive'),
   exportAllText: () => ipcRenderer.invoke('export-all-text'),
   openDataFolder: () => ipcRenderer.invoke('open-data-folder'),
+  openManual: () => ipcRenderer.invoke('open-manual'),
   copyText: (text) => ipcRenderer.invoke('copy-text', text),
   copyImage: (file) => ipcRenderer.invoke('copy-image', file),
   exportText: (title, text) => ipcRenderer.invoke('export-text', title, text),
