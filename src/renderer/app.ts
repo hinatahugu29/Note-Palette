@@ -862,6 +862,15 @@ function activeItem(): Item | undefined {
   );
 }
 
+/** アクティブな付箋のタブを前後に巡回する(端では反対側へ) */
+function cycleTabInActive(step: 1 | -1): void {
+  const item = activeItem();
+  if (!item || item.tabs.length < 2) return;
+  const index = item.tabs.findIndex((tab) => tab.id === item.activeTab);
+  const next = item.tabs[(index + step + item.tabs.length) % item.tabs.length];
+  activateTab(item, next.id, true);
+}
+
 function newTabInActive(): void {
   const item = activeItem();
   if (item) addTabTo(item);
@@ -1452,6 +1461,9 @@ function bindGlobalEvents(): void {
       e.preventDefault();
       searchEl.focus();
       searchEl.select();
+    } else if (e.ctrlKey && !e.altKey && e.key === 'Tab') {
+      e.preventDefault();
+      cycleTabInActive(e.shiftKey ? -1 : 1);
     } else if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 't') {
       e.preventDefault();
       newTabInActive();

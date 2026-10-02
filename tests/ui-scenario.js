@@ -73,6 +73,20 @@
     await w(200);
     steps.afterTabAndDuplicate = summarize();
 
+    // Ctrl+Tab でタブ巡回(付箋 2 のコピーがアクティブ。タブは メモ / タブ2)
+    const activeTabs = () => panelByTitle('付箋 2 のコピー').querySelector('.tab.active').textContent;
+    const cycled = [activeTabs()];
+    key('Tab', { ctrlKey: true });
+    await w(100);
+    cycled.push(activeTabs());
+    key('Tab', { ctrlKey: true, shiftKey: true });
+    await w(100);
+    cycled.push(activeTabs());
+    key('Tab', { ctrlKey: true, shiftKey: true });
+    await w(100);
+    cycled.push(activeTabs());
+    steps.tabCycle = cycled;
+
     // 文字サイズ・ピン・色
     const bigger = [...p3.querySelectorAll('.font-control button')].find((b) => b.textContent === 'A+');
     bigger.click();
