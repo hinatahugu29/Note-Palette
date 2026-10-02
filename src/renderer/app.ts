@@ -1,4 +1,6 @@
 import type { Board, ImageItem, Item, NoteApi, Tab } from '../shared/types.js';
+import { SNAP, clamp, computeTileRects, snapAxis, type Rect } from './lib/geometry.js';
+import { decodeTextFile, formatSize, isTextFile } from './lib/text-file.js';
 
 declare global {
   interface Window {
@@ -13,31 +15,16 @@ const MIN_W = 180;
 const MIN_H = 110;
 const DEFAULT_W = 300;
 const DEFAULT_H = 200;
-const TILE_GAP = 10;
 const SAVE_DELAY = 500;
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 3;
-const SNAP = 8;
 const IMG_MAX_W = 320;
 const LARGE_TEXT_FILE = 5 * 1024 * 1024;
 const HUGE_TEXT_FILE = 50 * 1024 * 1024;
 const HUGE_PREVIEW_SIZE = 5 * 1024 * 1024;
-const TEXT_EXT = new Set([
-  'txt', 'md', 'markdown', 'html', 'htm', 'css', 'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx',
-  'json', 'jsonl', 'xml', 'csv', 'tsv', 'log', 'yaml', 'yml', 'toml', 'ini', 'conf', 'cfg',
-  'sql', 'py', 'java', 'c', 'cpp', 'cc', 'h', 'hpp', 'cs', 'go', 'rs', 'php', 'rb', 'sh',
-  'ps1', 'bat', 'cmd', 'vue', 'svelte', 'svg', 'rtf',
-]);
 
 /** ボード上に置かれる要素(付箋 or 画像) */
 type Box = Item | ImageItem;
-
-interface Rect {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
 
 interface PanelView {
   item: Item;
@@ -96,10 +83,6 @@ function must<T extends HTMLElement>(id: string): T {
 
 function uid(): string {
   return Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-function clamp(v: number, lo: number, hi: number): number {
-  return Math.min(Math.max(v, lo), Math.max(lo, hi));
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
@@ -441,21 +424,7 @@ function freeRect(item: Box): Rect {
 
 function tileRects(): Map<string, Rect> {
   const { w: bw, h: bh } = boardSize();
-  const items = allBoxes();
-  const n = items.length;
-  const out = new Map<string, Rect>();
-  if (n === 0) return out;
-  const aspect = (bw - TILE_GAP) / Math.max(1, bh - TILE_GAP);
-  const cols = Math.max(1, Math.min(n, Math.round(Math.sqrt(n * aspect))));
-  const rows = Math.ceil(n / cols);
-  const cw = (bw - TILE_GAP * (cols + 1)) / cols;
-  const ch = (bh - TILE_GAP * (rows + 1)) / rows;
-  items.forEach((it, i) => {
-    const c = i % cols;
-    const r = Math.floor(i / cols);
-    out.set(it.id, { x: TILE_GAP + c * (cw + TILE_GAP), y: TILE_GAP + r * (ch + TILE_GAP), w: cw, h: ch });
-  });
-  return out;
+  return computeTileRects(allBoxes().map((box) => box.id), bw, bh);
 }
 
 function layoutAll(): void {
@@ -726,15 +695,6 @@ function trackPointer(e: PointerEvent, onMove: (dx: number, dy: number) => void,
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', up);
   window.addEventListener('pointercancel', up);
-}
-
-/** 端・他要素の辺への吸着 */
-function snapAxis(pos: number, size: number, edges: number[]): number {
-  for (const e of edges) {
-    if (Math.abs(pos - e) < SNAP) return e; // 先頭辺
-    if (Math.abs(pos + size - e) < SNAP) return e - size; // 末尾辺
-  }
-  return pos;
 }
 
 function edgesOf(self: Box, axis: 'x' | 'y'): number[] {
@@ -1223,35 +1183,6 @@ function imageFilesOf(list: DataTransferItemList | FileList | null): File[] {
     if (f && MIME_EXT[f.type]) files.push(f);
   }
   return files;
-}
-
-function isTextFile(file: File): boolean {
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-  return file.type.startsWith('text/') || TEXT_EXT.has(ext);
-}
-
-function decodeTextFile(bytes: ArrayBuffer): { text: string; encoding: string } {
-  const data = new Uint8Array(bytes);
-  if (data[0] === 0xef && data[1] === 0xbb && data[2] === 0xbf) {
-    return { text: new TextDecoder('utf-8').decode(data.subarray(3)), encoding: 'UTF-8 BOM' };
-  }
-  if (data[0] === 0xff && data[1] === 0xfe) {
-    return { text: new TextDecoder('utf-16le').decode(data.subarray(2)), encoding: 'UTF-16 LE' };
-  }
-  if (data[0] === 0xfe && data[1] === 0xff) {
-    return { text: new TextDecoder('utf-16be').decode(data.subarray(2)), encoding: 'UTF-16 BE' };
-  }
-  try {
-    return { text: new TextDecoder('utf-8', { fatal: true }).decode(data), encoding: 'UTF-8' };
-  } catch {
-    return { text: new TextDecoder('shift_jis').decode(data), encoding: 'Shift_JIS' };
-  }
-}
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 async function addTextFiles(files: File[], cx?: number, cy?: number): Promise<void> {
