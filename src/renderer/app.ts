@@ -1,4 +1,5 @@
 import type { Board, ImageItem, Item, NoteApi, Tab } from '../shared/types.js';
+import { el, must, uid } from './lib/dom.js';
 import { SNAP, clamp, computeTileRects, snapAxis, type Rect } from './lib/geometry.js';
 import { decodeTextFile, formatSize, isTextFile } from './lib/text-file.js';
 
@@ -74,23 +75,6 @@ const viewMenu = must<HTMLElement>('view-menu');
 const helpMenu = must<HTMLElement>('help-menu');
 const uniformFontSelect = must<HTMLSelectElement>('uniform-font-size');
 const unifyFontBtn = must<HTMLButtonElement>('btn-unify-font');
-
-function must<T extends HTMLElement>(id: string): T {
-  const el = document.getElementById(id);
-  if (!el) throw new Error(`#${id} not found`);
-  return el as T;
-}
-
-function uid(): string {
-  return Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
-  const e = document.createElement(tag);
-  if (cls) e.className = cls;
-  if (text !== undefined) e.textContent = text;
-  return e;
-}
 
 let noticeTimer: number | undefined;
 let panelMenuItem: Item | null = null;

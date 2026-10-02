@@ -91,6 +91,7 @@ npm test           # ビルド + 保存層の自動テスト
 npm run pack       # release/NotePalette-win32-x64/NotePalette.exe を生成(@electron/packager、約340MB。言語パックは ja/en-US のみ同梱。起動確認済み)
 ```
 - 構成: Electron 44 + TypeScript 7(バンドラなし。`tsc` のみ)。main は CommonJS、renderer は ES Modules。
+- renderer の分割方針: 状態に触れない純粋関数は `src/renderer/lib/`(`geometry.ts`=クランプ・スナップ・タイル計算、`text-file.ts`=文字コード判定など、`dom.ts`=DOM補助)へ切り出し済みで `tests/lib.test.js` で単体検証。付箋・保存・検索・ダイアログは `app.ts` 内のトップレベル状態(board/texts/views)を共有しており、分割するなら先に state モジュール化が必要(未着手。UI回帰テストを通しながら段階的に行う)。
 - `src/main/` main プロセス(`storage.ts`=保存層、`preload.ts`=IPC橋渡し)、`src/renderer/app.ts`=UI全体、`src/shared/types.ts`=データモデル、`static/`=HTML/CSS。
 - 将来の軽量化・単独exe化の比較と移植判断は `docs/FUTURE-OPTIONS.md` を参照。
 - 保存先: 配布版はexeと同じ場所の `NotePaletteData\`、開発実行は `%USERPROFILE%\Documents\NotePalette\`(環境変数 `NOTEPALETTE_DATA` で上書き可)。配布版の初回起動時、従来のDocuments側にデータがあればローカルへコピーして引き継ぐ。`board.json` / `items/<itemId>/<tabId>.txt` / `images/` / `backups/`(起動時＋1時間ごとに配置・全本文・画像をスナップショット保存、30世代) / `trash/`(削除はここへ移動) / `window.json`。
