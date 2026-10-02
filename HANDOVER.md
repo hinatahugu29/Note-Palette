@@ -88,6 +88,7 @@ NotePalette/
 npm install
 npm start          # ビルド + 起動
 npm run build      # ビルドのみ
+npm test           # ビルド + 保存層の自動テスト
 npm run pack       # release/NotePalette-win32-x64/NotePalette.exe を生成(@electron/packager、約370MB。起動確認済み)
 ```
 - 構成: Electron 44 + TypeScript 7(バンドラなし。`tsc` のみ)。main は CommonJS、renderer は ES Modules。
@@ -122,6 +123,7 @@ npm run pack       # release/NotePalette-win32-x64/NotePalette.exe を生成(@el
 - **ゴミ箱画面**: ツールバーの🗑から、過去に削除した付箋・タブ・画像を一覧して復元可能。新形式では復元用メタデータと実体を同じtrashエントリに保存
 - Tab キーで字下げ(Notepad++風)、ウィンドウ位置・サイズの復元、多重起動防止
 - 開発用フック: `NOTEPALETTE_SCREENSHOT=<png>`(+`NOTEPALETTE_SCRIPT=<js>`)で、スクリプト実行後に画面をPNG保存して終了(ヘッドレス確認用)
+- Node標準テスト: 初回データ、再読み込み、本文スナップショット、付箋・タブ・画像のゴミ箱復元を `tests/storage.test.js` で検証
 
 ### 確認済み(ヘッドレス実行・スクリーンショット)
 付箋の新規作成、タブ追加と入力、タイル切替、検索の減光とタブ強調、再起動後の配置・本文・タイル状態の復元、本文が平文 .txt で保存されること。
