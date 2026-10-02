@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json",
     "test": "npm run build && node --test tests/*.test.js",
+    "test:ui": "npm run build && node --test tests/ui.test.js",
     "start": "npm run build && electron .",
     "pack": "node scripts/pack.js"
   },

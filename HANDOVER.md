@@ -134,6 +134,7 @@ npm run pack       # release/NotePalette-win32-x64/NotePalette.exe を生成(@el
 - **保存エラー再試行**: 保存失敗時は未保存フラグを保持し、右上へ「保存エラー・再試行」を残す。クリックで再試行でき、未保存中は削除・復元・データ入出力を進めない
 - Tab キーで字下げ(Notepad++風)、ウィンドウ位置・サイズの復元、多重起動防止
 - 開発用フック: `NOTEPALETTE_SCREENSHOT=<png>`(+`NOTEPALETTE_SCRIPT=<js>`)で、スクリプト実行後に画面をPNG保存して終了(ヘッドレス確認用)
+- UI回帰テスト: `npm run test:ui` が実Electronを一時データで起動し、`tests/ui-scenario.js`(新規・入力・タブ・複製・文字サイズ・ピン・色・ドラッグ・リサイズ・タイル・検索・最大化・削除・ゴミ箱)の結果DOM要約を `tests/ui-expected.json` と比較。意図した変更後は `UPDATE_UI_EXPECTED=1 npm run test:ui` で期待値を更新。`NOTEPALETTE_RESULT=<json>` でスクリプトの戻り値を保存できる
 - Node標準テスト: 初回データ、再読み込み、本文・画像スナップショット、付箋・タブ・画像のゴミ箱復元、履歴復元、ZIP往復、全TXT書き出しを `tests/storage.test.js` で検証
 
 ### 確認済み(ヘッドレス実行・スクリーンショット)

@@ -139,7 +139,10 @@ function createWindow(): void {
     const script = process.env.NOTEPALETTE_SCRIPT;
     win.webContents.on('did-finish-load', () => {
       setTimeout(async () => {
-        if (script) await win.webContents.executeJavaScript(script);
+        let result: unknown;
+        if (script) result = await win.webContents.executeJavaScript(script);
+        const resultFile = process.env.NOTEPALETTE_RESULT;
+        if (resultFile) fs.writeFileSync(resultFile, JSON.stringify(result ?? null, null, 2));
         setTimeout(async () => {
           const img = await win.webContents.capturePage();
           fs.writeFileSync(shot, img.toPNG());
