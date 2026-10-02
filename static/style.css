@@ -274,7 +274,7 @@ body { display: flex; flex-direction: column; }
   outline: none;
 }
 .spacer { flex: 1; }
-.actions { display: flex; align-items: center; padding-right: 2px; }
+.actions { display: flex; flex: none; align-items: center; padding-right: 2px; }
 .font-control { display: flex; align-items: center; }
 .font-value {
   min-width: 20px;
@@ -295,7 +295,12 @@ body { display: flex; flex-direction: column; }
   font-size: 13px;
   cursor: pointer;
 }
-.add-tab { align-self: center; }
+.add-tab { align-self: center; flex: none; }
+/* 幅の狭い付箋では文字サイズ調整を隠し、右端のボタン(最大化・⋯)を押せるようにする */
+.panel { container-type: inline-size; }
+@container (max-width: 249px) {
+  .font-control { display: none; }
+}
 .actions button:hover, .add-tab:hover { background: rgba(255, 255, 255, 0.45); }
 .actions button.pin { opacity: 0.45; }
 .actions button.pin.active { opacity: 1; background: rgba(255, 255, 255, 0.35); }
