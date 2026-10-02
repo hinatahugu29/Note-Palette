@@ -17,6 +17,7 @@
     </div>
     <span id="search-info"></span>
     <span class="grow"></span>
+    <button id="btn-archive" title="収納した付箋">▣</button>
     <button id="btn-trash" title="ゴミ箱から復元">🗑</button>
     <div id="help-wrap">
       <button id="btn-help" title="ショートカット一覧">?</button>
@@ -73,6 +74,7 @@
     <button data-action="color">● 色を変更</button>
     <button data-action="export">⇩ 現在のタブを書き出す</button>
     <button data-action="duplicate">⎘ 付箋を複製</button>
+    <button data-action="archive">▣ 付箋を収納</button>
     <button data-action="maximize">⤢ 最大化／元に戻す</button>
     <div class="menu-separator"></div>
     <button data-action="delete" class="danger">× 付箋を削除</button>
@@ -85,6 +87,16 @@
       </header>
       <p>削除した付箋・タブ・画像を元の場所へ戻せます。</p>
       <div id="trash-list"></div>
+    </section>
+  </div>
+  <div id="archive-dialog" class="dialog-backdrop" hidden>
+    <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="archive-title">
+      <header>
+        <h2 id="archive-title">収納した付箋</h2>
+        <button id="archive-close" title="閉じる">×</button>
+      </header>
+      <p>使わない付箋を削除せず、ボードの外へ一時的に置いておけます。</p>
+      <div id="archive-list"></div>
     </section>
   </div>
   <div id="notice" role="status" aria-live="polite" hidden>

@@ -17,6 +17,8 @@ export interface Item {
   color: number;
   fontSize: number;
   title: string;
+  /** 削除せずボードから一時的に隠す */
+  archived: boolean;
   /** 誤操作によるタブ・付箋の削除を防ぐ */
   pinned: boolean;
   tabs: Tab[];

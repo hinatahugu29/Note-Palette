@@ -67,6 +67,8 @@ const noticeActionEl = must<HTMLButtonElement>('notice-action');
 const panelMenuEl = must<HTMLElement>('panel-menu');
 const trashDialogEl = must<HTMLElement>('trash-dialog');
 const trashListEl = must<HTMLElement>('trash-list');
+const archiveDialogEl = must<HTMLElement>('archive-dialog');
+const archiveListEl = must<HTMLElement>('archive-list');
 const layoutBtn = must<HTMLButtonElement>('btn-layout');
 const zoomBtn = must<HTMLButtonElement>('btn-zoom');
 const viewMenu = must<HTMLElement>('view-menu');
@@ -163,6 +165,38 @@ async function openTrash(): Promise<void> {
   }
 }
 
+function openArchive(): void {
+  archiveDialogEl.hidden = false;
+  archiveListEl.textContent = '';
+  const archived = board.items.filter((item) => item.archived);
+  if (archived.length === 0) {
+    archiveListEl.appendChild(el('div', 'trash-empty', '収納中の付箋はありません'));
+    return;
+  }
+  for (const item of archived) {
+    const row = el('div', 'trash-row');
+    const info = el('div', 'trash-info');
+    info.append(
+      el('div', 'trash-name', item.title),
+      el('div', 'trash-meta', `${item.tabs.length} タブ`),
+    );
+    const restore = el('button', undefined, 'ボードへ戻す');
+    restore.addEventListener('click', () => {
+      item.archived = false;
+      item.z = topZ() + 1;
+      createView(item);
+      layoutAll();
+      setActive(item);
+      activateTab(item, item.activeTab, true);
+      markBoardDirty();
+      openArchive();
+      showNotice('付箋をボードへ戻しました');
+    });
+    row.append(info, restore);
+    archiveListEl.appendChild(row);
+  }
+}
+
 async function restoreTrashEntry(trashName: string): Promise<void> {
   const result = await api.restoreTrash(trashName);
   if (!result) {
@@ -182,10 +216,10 @@ async function restoreTrashEntry(trashName: string): Promise<void> {
     setActive(result.item);
     activateTab(result.item, result.item.activeTab, true);
   } else if (result.kind === 'tab') {
-    let item = board.items.find((candidate) => candidate.id === result.itemId);
-    if (!item) {
+    let target = board.items.find((candidate) => candidate.id === result.itemId);
+    if (!target) {
       const { w: bw, h: bh } = boardSize();
-      item = {
+      const recovered: Item = {
         id: result.itemId,
         kind: 'panel',
         title: `復元: ${result.tab.title}`,
@@ -196,14 +230,17 @@ async function restoreTrashEntry(trashName: string): Promise<void> {
         z: topZ() + 1,
         color: board.items.length % COLOR_COUNT,
         fontSize: 14,
+        archived: false,
         pinned: false,
         tabs: [],
         activeTab: result.tab.id,
         mode: 'board',
       };
-      board.items.push(item);
-      createView(item);
+      board.items.push(recovered);
+      createView(recovered);
+      target = recovered;
     }
+    const item = target;
     if (!item.tabs.some((tab) => tab.id === result.tab.id)) item.tabs.push(result.tab);
     texts[result.tab.id] = result.text;
     ensureArea(views.get(item.id)!, result.tab);
@@ -286,7 +323,7 @@ async function saveNow(): Promise<void> {
 // ---------------------------------------------------------------- 配置計算
 
 function allBoxes(): Box[] {
-  return [...board.items, ...board.images];
+  return [...board.items.filter((item) => !item.archived), ...board.images];
 }
 
 function elOf(id: string): HTMLElement | undefined {
@@ -680,12 +717,13 @@ function startTileReorder(e: PointerEvent, item: Box, el: HTMLElement): void {
 /** タイル配置の順(付箋→画像)を、from を to の位置へ移動して更新する */
 function reorder(from: Box, to: Box): void {
   const list = allBoxes();
+  const archived = board.items.filter((item) => item.archived);
   const fi = list.indexOf(from);
   const ti = list.indexOf(to);
   if (fi < 0 || ti < 0 || fi === ti) return;
   list.splice(fi, 1);
   list.splice(ti, 0, from);
-  board.items = list.filter((b): b is Item => 'tabs' in b);
+  board.items = [...list.filter((b): b is Item => 'tabs' in b), ...archived];
   board.images = list.filter((b): b is ImageItem => 'file' in b);
   layoutAll();
   markBoardDirty();
@@ -737,6 +775,7 @@ function addPanel(x?: number, y?: number): void {
     color: n % COLOR_COUNT,
     fontSize: 14,
     title: `付箋 ${n + 1}`,
+    archived: false,
     pinned: false,
     tabs: [tab],
     activeTab: tab.id,
@@ -777,8 +816,8 @@ function setActive(item: Item): void {
 /** ショートカットの対象。最後に触った付箋、無ければ最前面の付箋 */
 function activeItem(): Item | undefined {
   return (
-    board.items.find((i) => i.id === activeId) ??
-    [...board.items].sort((a, b) => b.z - a.z)[0]
+    board.items.find((i) => !i.archived && i.id === activeId) ??
+    [...board.items].filter((item) => !item.archived).sort((a, b) => b.z - a.z)[0]
   );
 }
 
@@ -799,6 +838,7 @@ function duplicateActiveItem(): void {
     x: clamp(source.x + 24, 0, bw - source.w),
     y: clamp(source.y + 24, 0, bh - source.h),
     z: topZ() + 1,
+    archived: false,
     pinned: false,
     tabs,
     activeTab: tabs[source.tabs.findIndex((tab) => tab.id === source.activeTab)]?.id ?? tabs[0].id,
@@ -923,6 +963,20 @@ async function removePanel(item: Item): Promise<void> {
   });
 }
 
+function archiveItem(item: Item): void {
+  const view = views.get(item.id);
+  if (!view) return;
+  item.archived = true;
+  view.el.remove();
+  views.delete(item.id);
+  if (activeId === item.id) activeId = null;
+  if (board.view.maximizedId === item.id) board.view.maximizedId = null;
+  layoutAll();
+  runSearch(false);
+  markBoardDirty();
+  showNotice('付箋を収納しました');
+}
+
 function changeFont(item: Item, delta: number): void {
   item.fontSize = clamp(item.fontSize + delta, 8, 72);
   const view = views.get(item.id)!;
@@ -933,7 +987,7 @@ function changeFont(item: Item, delta: number): void {
 
 function unifyFontSize(size: number): void {
   if (board.items.length === 0) return;
-  for (const item of board.items) {
+  for (const item of board.items.filter((candidate) => !candidate.archived)) {
     item.fontSize = size;
     const view = views.get(item.id);
     view?.el.style.setProperty('--fs', String(size));
@@ -1090,7 +1144,7 @@ interface SearchHit {
 function searchHits(): SearchHit[] {
   if (!query) return [];
   const hits: SearchHit[] = [];
-  for (const item of board.items) {
+  for (const item of board.items.filter((candidate) => !candidate.archived)) {
     const tabHits = item.tabs.filter(tabMatches);
     if (tabHits.length > 0) {
       tabHits.forEach((tab) => hits.push({ item, tab }));
@@ -1168,6 +1222,11 @@ function jumpToNextHit(): void {
 
 function bindGlobalEvents(): void {
   must('btn-new').addEventListener('click', () => addPanel());
+  must('btn-archive').addEventListener('click', openArchive);
+  must('archive-close').addEventListener('click', () => (archiveDialogEl.hidden = true));
+  archiveDialogEl.addEventListener('click', (e) => {
+    if (e.target === archiveDialogEl) archiveDialogEl.hidden = true;
+  });
   must('btn-trash').addEventListener('click', () => void openTrash());
   must('trash-close').addEventListener('click', () => (trashDialogEl.hidden = true));
   trashDialogEl.addEventListener('click', (e) => {
@@ -1213,6 +1272,7 @@ function bindGlobalEvents(): void {
       setActive(item);
       duplicateActiveItem();
     } else if (action === 'maximize') toggleMax(item);
+    else if (action === 'archive') archiveItem(item);
     else if (action === 'delete') void removePanel(item);
   });
 
@@ -1265,7 +1325,9 @@ function bindGlobalEvents(): void {
       e.preventDefault();
       setZoom(1);
     } else if (e.key === 'Escape') {
-      if (!trashDialogEl.hidden) {
+      if (!archiveDialogEl.hidden) {
+        archiveDialogEl.hidden = true;
+      } else if (!trashDialogEl.hidden) {
         trashDialogEl.hidden = true;
       } else if (!helpMenu.hidden) {
         helpMenu.hidden = true;
@@ -1311,13 +1373,13 @@ async function main(): Promise<void> {
   board = res.board;
   texts = res.texts;
   bindGlobalEvents();
-  for (const item of [...board.items].sort((a, b) => a.z - b.z)) createView(item);
+  for (const item of [...board.items].filter((candidate) => !candidate.archived).sort((a, b) => a.z - b.z)) createView(item);
   for (const img of [...board.images].sort((a, b) => a.z - b.z)) {
     const bytes = await api.readImage(img.file);
     if (bytes) createImageView(img, bytes);
   }
   layoutAll();
-  for (const item of board.items) activateTab(item, item.activeTab, false);
+  for (const item of board.items.filter((candidate) => !candidate.archived)) activateTab(item, item.activeTab, false);
   updateStatus();
   statusEl.textContent = '保存済み';
   window.setInterval(() => {

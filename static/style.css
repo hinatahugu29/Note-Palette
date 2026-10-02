@@ -41,7 +41,7 @@ body { display: flex; flex-direction: column; }
   cursor: pointer;
 }
 #toolbar button:hover { background: #3b3e45; }
-#btn-trash { width: 30px; padding: 0; }
+#btn-trash, #btn-archive { width: 30px; padding: 0; }
 #view-menu-wrap, #help-wrap { position: relative; }
 #help-wrap > button { width: 28px; padding: 0; }
 #help-menu { width: 280px; }
@@ -326,7 +326,7 @@ body { display: flex; flex-direction: column; }
   background: transparent; color: var(--fg); cursor: pointer;
 }
 .dialog > p { margin: 8px 0 12px; color: var(--muted); }
-#trash-list { max-height: 480px; overflow-y: auto; }
+#trash-list, #archive-list { max-height: 480px; overflow-y: auto; }
 .trash-row {
   display: flex;
   align-items: center;

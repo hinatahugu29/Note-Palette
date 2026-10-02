@@ -40,6 +40,7 @@ export function defaultBoard(): Board {
         color: 0,
         fontSize: 14,
         title: 'ようこそ',
+        archived: false,
         pinned: false,
         tabs: [{ id: 'welcome-1', title: 'メモ', scroll: 0 }],
         activeTab: 'welcome-1',
@@ -108,6 +109,7 @@ export class Storage {
       b.images ??= [];
       for (const item of b.items) {
         item.pinned ??= false;
+        item.archived ??= false;
         item.title ??= item.tabs[0]?.title || '付箋';
       }
       return b;
