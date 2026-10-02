@@ -109,6 +109,7 @@ function createWindow(): void {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
+      backgroundThrottling: !process.env.NOTEPALETTE_SCREENSHOT,
     },
   });
   if (state.maximized) win.maximize();
