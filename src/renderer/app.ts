@@ -19,6 +19,13 @@ const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 3;
 const SNAP = 8;
 const IMG_MAX_W = 320;
+const LARGE_TEXT_FILE = 5 * 1024 * 1024;
+const TEXT_EXT = new Set([
+  'txt', 'md', 'markdown', 'html', 'htm', 'css', 'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx',
+  'json', 'jsonl', 'xml', 'csv', 'tsv', 'log', 'yaml', 'yml', 'toml', 'ini', 'conf', 'cfg',
+  'sql', 'py', 'java', 'c', 'cpp', 'cc', 'h', 'hpp', 'cs', 'go', 'rs', 'php', 'rb', 'sh',
+  'ps1', 'bat', 'cmd', 'vue', 'svelte', 'svg', 'rtf',
+]);
 
 /** ボード上に置かれる要素(付箋 or 画像) */
 type Box = Item | ImageItem;
@@ -1128,6 +1135,80 @@ function imageFilesOf(list: DataTransferItemList | FileList | null): File[] {
   return files;
 }
 
+function isTextFile(file: File): boolean {
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+  return file.type.startsWith('text/') || TEXT_EXT.has(ext);
+}
+
+function decodeTextFile(bytes: ArrayBuffer): string {
+  const data = new Uint8Array(bytes);
+  if (data[0] === 0xef && data[1] === 0xbb && data[2] === 0xbf) {
+    return new TextDecoder('utf-8').decode(data.subarray(3));
+  }
+  if (data[0] === 0xff && data[1] === 0xfe) {
+    return new TextDecoder('utf-16le').decode(data.subarray(2));
+  }
+  if (data[0] === 0xfe && data[1] === 0xff) {
+    return new TextDecoder('utf-16be').decode(data.subarray(2));
+  }
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(data);
+  } catch {
+    return new TextDecoder('shift_jis').decode(data);
+  }
+}
+
+async function addTextFiles(files: File[], cx?: number, cy?: number): Promise<void> {
+  if (files.length === 0) return;
+  const large = files.filter((file) => file.size > LARGE_TEXT_FILE);
+  if (
+    large.length > 0 &&
+    !confirm(`${large.map((file) => file.name).join('\n')}\n\n5MBを超えるファイルです。読み込みますか?`)
+  ) return;
+
+  try {
+    const imported = await Promise.all(
+      files.map(async (file) => ({ name: file.name, text: decodeTextFile(await file.arrayBuffer()) })),
+    );
+    const { w: bw, h: bh } = boardSize();
+    const w = Math.min(420, bw);
+    const h = Math.min(300, bh);
+    const tabs = imported.map(({ name }) => newTab(name));
+    const item: Item = {
+      id: uid(),
+      kind: 'panel',
+      title: imported.length === 1 ? imported[0].name : `${imported[0].name} ほか${imported.length - 1}件`,
+      x: clamp(cx ?? 60, 0, bw - w),
+      y: clamp(cy ?? 50, 0, bh - h),
+      w,
+      h,
+      z: topZ() + 1,
+      color: board.items.length % COLOR_COUNT,
+      fontSize: 14,
+      archived: false,
+      pinned: false,
+      tabs,
+      activeTab: tabs[0].id,
+      mode: 'board',
+    };
+    imported.forEach(({ text }, index) => {
+      texts[tabs[index].id] = text;
+      markTabDirty(item.id, tabs[index].id);
+    });
+    board.items.push(item);
+    board.view.maximizedId = null;
+    createView(item);
+    layoutAll();
+    setActive(item);
+    activateTab(item, item.activeTab, true);
+    markBoardDirty();
+    showNotice(`${files.length}個のテキストファイルを取り込みました`);
+  } catch (err) {
+    console.error(err);
+    showNotice('テキストファイルを読み込めませんでした');
+  }
+}
+
 function setZoom(z: number): void {
   board.view.zoom = Math.round(clamp(z, ZOOM_MIN, ZOOM_MAX) * 100) / 100;
   layoutAll();
@@ -1345,24 +1426,42 @@ function bindGlobalEvents(): void {
     }
   });
 
-  // 画像: クリップボード貼り付け / ファイルのドロップ
+  // 画像: クリップボード貼り付け。外部ファイルは画像またはテキストとして取り込む
   window.addEventListener('paste', (e) => {
     const files = imageFilesOf(e.clipboardData?.items ?? null);
     if (files.length === 0) return;
     e.preventDefault();
     for (const f of files) void addImage(f, MIME_EXT[f.type]);
   });
+  let fileDragDepth = 0;
+  boardEl.addEventListener('dragenter', (e) => {
+    if (!e.dataTransfer?.types.includes('Files')) return;
+    fileDragDepth += 1;
+    boardEl.classList.add('file-drag');
+  });
   boardEl.addEventListener('dragover', (e) => {
     if (e.dataTransfer?.types.includes('Files')) e.preventDefault();
   });
+  boardEl.addEventListener('dragleave', () => {
+    fileDragDepth = Math.max(0, fileDragDepth - 1);
+    if (fileDragDepth === 0) boardEl.classList.remove('file-drag');
+  });
   boardEl.addEventListener('drop', (e) => {
-    const files = imageFilesOf(e.dataTransfer?.files ?? null);
-    if (files.length === 0) return;
+    fileDragDepth = 0;
+    boardEl.classList.remove('file-drag');
+    const dropped = Array.from(e.dataTransfer?.files ?? []);
+    const images = dropped.filter((file) => Boolean(MIME_EXT[file.type]));
+    const textFiles = dropped.filter((file) => !MIME_EXT[file.type] && isTextFile(file));
+    if (images.length === 0 && textFiles.length === 0) {
+      if (dropped.length > 0) showNotice('対応しているテキストまたは画像ファイルではありません');
+      return;
+    }
     e.preventDefault();
     const rect = boardEl.getBoundingClientRect();
-    files.forEach((f, i) =>
+    images.forEach((f, i) =>
       void addImage(f, MIME_EXT[f.type], e.clientX - rect.left - 100 + i * 24, e.clientY - rect.top - 14 + i * 24),
     );
+    void addTextFiles(textFiles, e.clientX - rect.left - 120, e.clientY - rect.top - 18);
   });
 
   api.onFlushRequest(saveNow);

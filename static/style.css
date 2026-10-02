@@ -154,6 +154,20 @@ body { display: flex; flex-direction: column; }
   overflow: hidden;
   --zoom: 1;
 }
+#board.file-drag::after {
+  content: "ここへドロップして取り込み";
+  position: absolute;
+  inset: 12px;
+  z-index: 190000;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--accent);
+  border-radius: 10px;
+  background: rgba(43, 45, 49, 0.82);
+  color: #d9e5ff;
+  font-size: 18px;
+  pointer-events: none;
+}
 
 /* ---- パネル(付箋) ---- */
 .panel {
