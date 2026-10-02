@@ -19,6 +19,18 @@
     <span class="grow"></span>
     <button id="btn-archive" title="収納した付箋">▣</button>
     <button id="btn-trash" title="ゴミ箱から復元">🗑</button>
+    <div id="data-wrap">
+      <button id="btn-data" title="バックアップとデータ">⚙</button>
+      <div id="data-menu" class="popover" hidden>
+        <div class="menu-label">データと復旧</div>
+        <button data-data-action="backups">バックアップ履歴</button>
+        <button data-data-action="archive-export">全データをZIP保存</button>
+        <button data-data-action="archive-import">ZIPバックアップを読込</button>
+        <button data-data-action="text-export">全付箋をTXTで書き出す</button>
+        <div class="menu-separator"></div>
+        <button data-data-action="open-folder">保存場所を開く</button>
+      </div>
+    </div>
     <div id="help-wrap">
       <button id="btn-help" title="ショートカット一覧">?</button>
       <div id="help-menu" class="popover" hidden>
@@ -73,6 +85,7 @@
   <div id="panel-menu" hidden>
     <button data-action="color">● 色を変更</button>
     <button data-action="export">⇩ 現在のタブを書き出す</button>
+    <button data-action="source">ⓘ 取り込み情報</button>
     <button data-action="duplicate">⎘ 付箋を複製</button>
     <button data-action="archive">▣ 付箋を収納</button>
     <button data-action="maximize">⤢ 最大化／元に戻す</button>
@@ -97,6 +110,16 @@
       </header>
       <p>使わない付箋を削除せず、ボードの外へ一時的に置いておけます。</p>
       <div id="archive-list"></div>
+    </section>
+  </div>
+  <div id="backup-dialog" class="dialog-backdrop" hidden>
+    <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="backup-title">
+      <header>
+        <h2 id="backup-title">バックアップ履歴</h2>
+        <button id="backup-close" title="閉じる">×</button>
+      </header>
+      <p>選択した時点の付箋・タブ・本文へ戻します。現在状態も復元前に退避されます。</p>
+      <div id="backup-list"></div>
     </section>
   </div>
   <div id="notice" role="status" aria-live="polite" hidden>

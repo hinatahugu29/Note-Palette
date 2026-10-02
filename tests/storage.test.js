@@ -75,3 +75,70 @@ test('削除したタブと画像を内容を変えずに復元する', async (t
   assert.equal(restoredImage.kind, 'image');
   assert.deepEqual(Buffer.from(await storage.readImage(file)), source);
 });
+
+test('本文を変更した後でもバックアップ時点へ戻せる', async (t) => {
+  const { storage } = await tempStorage(t);
+  const board = defaultBoard();
+  await storage.saveBoard(board);
+  await storage.saveTab('welcome', 'welcome-1', 'バックアップ時点');
+  const imageBytes = Buffer.from('aabbcc', 'hex');
+  const imageFile = await storage.saveImage('png', imageBytes);
+  board.images.push({ id: 'backup-image', x: 0, y: 0, w: 180, h: 110, z: 2, file: imageFile });
+  await storage.saveBoard(board);
+  await storage.createBackup();
+  const snapshot = (await storage.listBackups())[0];
+
+  board.items[0].title = '変更後';
+  await storage.saveBoard(board);
+  await storage.saveTab('welcome', 'welcome-1', '変更後の本文');
+  await storage.removeImage(board.images[0]);
+  assert.equal(await storage.restoreBackup(snapshot.name), true);
+
+  const restored = await storage.load();
+  assert.equal(restored.board.items[0].title, 'ようこそ');
+  assert.equal(restored.texts['welcome-1'], 'バックアップ時点');
+  assert.deepEqual(Buffer.from(await storage.readImage(imageFile)), imageBytes);
+});
+
+test('ZIPバックアップを別の保存先へ完全に読み戻せる', async (t) => {
+  const source = await tempStorage(t);
+  const destination = await tempStorage(t);
+  const board = defaultBoard();
+  board.items[0].title = 'ZIPテスト';
+  await source.storage.saveBoard(board);
+  await source.storage.saveTab('welcome', 'welcome-1', 'ZIP内の本文');
+  const imageBytes = Buffer.from('89504e470d0a1a0a', 'hex');
+  const imageFile = await source.storage.saveImage('png', imageBytes);
+  board.images.push({ id: 'zip-image', x: 10, y: 10, w: 180, h: 110, z: 2, file: imageFile });
+  await source.storage.saveBoard(board);
+
+  const zipFile = path.join(source.dir, 'transfer.zip');
+  await source.storage.exportArchive(zipFile);
+  await destination.storage.importArchive(zipFile);
+  const restored = await destination.storage.load();
+
+  assert.equal(restored.board.items[0].title, 'ZIPテスト');
+  assert.equal(restored.texts['welcome-1'], 'ZIP内の本文');
+  assert.deepEqual(Buffer.from(await destination.storage.readImage(imageFile)), imageBytes);
+});
+
+test('全付箋を一般的なTXTと画像フォルダへ書き出す', async (t) => {
+  const { dir, storage } = await tempStorage(t);
+  const board = defaultBoard();
+  board.items[0].title = '企画:メモ';
+  board.items[0].tabs[0].title = '本文/案';
+  await storage.saveBoard(board);
+  await storage.saveTab('welcome', 'welcome-1', '外部で読める本文');
+  const imageFile = await storage.saveImage('png', Buffer.from('0102', 'hex'));
+  const parent = path.join(dir, 'exports');
+  await fs.mkdir(parent);
+  const exported = await storage.exportAllText(parent);
+
+  const folders = await fs.readdir(exported);
+  const noteFolder = folders.find((name) => name.startsWith('001-'));
+  assert.ok(noteFolder);
+  const files = await fs.readdir(path.join(exported, noteFolder));
+  assert.equal(files.length, 1);
+  assert.equal(await fs.readFile(path.join(exported, noteFolder, files[0]), 'utf8'), '外部で読める本文');
+  assert.deepEqual(await fs.readFile(path.join(exported, 'images', imageFile)), Buffer.from('0102', 'hex'));
+});

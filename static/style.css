@@ -42,8 +42,14 @@ body { display: flex; flex-direction: column; }
 }
 #toolbar button:hover { background: #3b3e45; }
 #btn-trash, #btn-archive { width: 30px; padding: 0; }
-#view-menu-wrap, #help-wrap { position: relative; }
+#view-menu-wrap, #help-wrap, #data-wrap { position: relative; }
 #help-wrap > button { width: 28px; padding: 0; }
+#data-wrap > button { width: 30px; padding: 0; }
+#data-menu { width: 220px; }
+#data-menu > button {
+  display: block; width: 100%; height: auto; padding: 7px 8px;
+  border: none; text-align: left;
+}
 #help-menu { width: 280px; }
 .shortcuts { margin: 0; }
 .shortcuts div { display: flex; gap: 12px; padding: 4px 0; }
@@ -123,6 +129,7 @@ body { display: flex; flex-direction: column; }
 }
 #search-info, #status { color: var(--muted); font-size: 12px; white-space: nowrap; }
 #status.dirty { color: #e0b050; }
+#status.error { color: #ff8d8d; cursor: pointer; }
 #notice {
   position: fixed;
   left: 50%;
@@ -340,7 +347,7 @@ body { display: flex; flex-direction: column; }
   background: transparent; color: var(--fg); cursor: pointer;
 }
 .dialog > p { margin: 8px 0 12px; color: var(--muted); }
-#trash-list, #archive-list { max-height: 480px; overflow-y: auto; }
+#trash-list, #archive-list, #backup-list { max-height: 480px; overflow-y: auto; }
 .trash-row {
   display: flex;
   align-items: center;

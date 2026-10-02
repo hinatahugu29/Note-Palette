@@ -2,6 +2,13 @@ export interface Tab {
   id: string;
   title: string;
   scroll: number;
+  source?: {
+    fileName: string;
+    size: number;
+    encoding: string;
+    importedAt: string;
+    truncated?: boolean;
+  };
 }
 
 /** ボード上の要素。v1 はパネルのみ。将来 kind: 'image' などを追加する。 */
@@ -67,6 +74,13 @@ export interface TrashEntry {
   deletedAt: string;
 }
 
+export interface BackupInfo {
+  name: string;
+  createdAt: string;
+  itemCount: number;
+  tabCount: number;
+}
+
 export type TrashRestoreResult =
   | { kind: 'item'; item: Item; texts: Record<string, string> }
   | { kind: 'tab'; itemId: string; tab: Tab; text: string }
@@ -89,6 +103,12 @@ export interface NoteApi {
   restoreImage(trashName: string, file: string): Promise<boolean>;
   listTrash(): Promise<TrashEntry[]>;
   restoreTrash(trashName: string): Promise<TrashRestoreResult | null>;
+  listBackups(): Promise<BackupInfo[]>;
+  restoreBackup(name: string): Promise<boolean>;
+  exportArchive(): Promise<string | null>;
+  importArchive(): Promise<boolean>;
+  exportAllText(): Promise<string | null>;
+  openDataFolder(): Promise<string>;
   /** クリップボードの先頭へ置く */
   copyText(text: string): Promise<void>;
   /** 保存済み画像をクリップボードへ。失敗時 false */

@@ -1,4 +1,5 @@
-import { app, BrowserWindow, clipboard, ClipboardItem, dialog, ipcMain, nativeImage, screen } from 'electron';
+import { app, BrowserWindow, clipboard, ClipboardItem, dialog, ipcMain, nativeImage, screen, shell } from 'electron';
+import type { OpenDialogOptions, SaveDialogOptions } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Storage } from './storage';
@@ -134,6 +135,41 @@ ipcMain.handle('remove-image', (_e, image: ImageItem) => storage.removeImage(ima
 ipcMain.handle('restore-image', (_e, trashName: string, file: string) => storage.restoreImage(trashName, file));
 ipcMain.handle('list-trash', () => storage.listTrash());
 ipcMain.handle('restore-trash', (_e, trashName: string) => storage.restoreTrash(trashName));
+ipcMain.handle('list-backups', () => storage.listBackups());
+ipcMain.handle('restore-backup', (_e, name: string) => storage.restoreBackup(name));
+ipcMain.handle('export-archive', async (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender) ?? undefined;
+  const date = new Date().toISOString().slice(0, 10);
+  const options: SaveDialogOptions = {
+    title: 'NotePalette全体をバックアップ',
+    defaultPath: path.join(app.getPath('documents'), `NotePalette-backup-${date}.zip`),
+    filters: [{ name: 'ZIPバックアップ', extensions: ['zip'] }],
+  };
+  const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+  if (result.canceled || !result.filePath) return null;
+  await storage.exportArchive(result.filePath);
+  return result.filePath;
+});
+ipcMain.handle('import-archive', async (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender) ?? undefined;
+  const options: OpenDialogOptions = {
+    title: 'NotePaletteバックアップを読み込む',
+    properties: ['openFile'],
+    filters: [{ name: 'ZIPバックアップ', extensions: ['zip'] }],
+  };
+  const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+  if (result.canceled || !result.filePaths[0]) return false;
+  await storage.importArchive(result.filePaths[0]);
+  return true;
+});
+ipcMain.handle('export-all-text', async (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender) ?? undefined;
+  const options: OpenDialogOptions = { title: '全付箋の書き出し先', properties: ['openDirectory', 'createDirectory'] };
+  const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+  if (result.canceled || !result.filePaths[0]) return null;
+  return storage.exportAllText(result.filePaths[0]);
+});
+ipcMain.handle('open-data-folder', () => shell.openPath(dataDir));
 ipcMain.handle('copy-text', (_e, text: string) => clipboard.writeText(String(text)));
 ipcMain.handle('export-text', async (e, title: string, text: string) => {
   const safeTitle = String(title || 'メモ').replace(/[\\/:*?"<>|]/g, '_').trim() || 'メモ';

@@ -1,12 +1,14 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import type { Board, ImageItem, Item, LoadResult, Tab, TrashEntry, TrashRestoreResult } from '../shared/types';
+import AdmZip = require('adm-zip');
+import type { BackupInfo, Board, ImageItem, Item, LoadResult, Tab, TrashEntry, TrashRestoreResult } from '../shared/types';
 
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const BACKUP_KEEP = 30;
 const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp']);
 const IMAGE_FILE_RE = /^[A-Za-z0-9_-]+\.[a-z0-9]{2,4}$/;
 const TRASH_NAME_RE = /^[A-Za-z0-9_.-]{1,200}$/;
+const SNAPSHOT_NAME_RE = /^snapshot-[A-Za-z0-9_.-]{1,80}$/;
 
 type TrashMeta =
   | { kind: 'item'; title: string; deletedAt: string; item: Item }
@@ -15,6 +17,11 @@ type TrashMeta =
 
 function assertId(id: string): void {
   if (!ID_RE.test(id)) throw new Error(`invalid id: ${id}`);
+}
+
+function safeFileName(value: string, fallback: string): string {
+  const cleaned = value.replace(/[\\/:*?"<>|]/g, '_').replace(/[. ]+$/g, '').trim();
+  return (cleaned || fallback).slice(0, 100);
 }
 
 function stamp(): string {
@@ -59,6 +66,7 @@ const WELCOME_TEXT =
   '・📌で付箋を閉じないよう保護、Ctrl+S で現在のタブを書き出し\n' +
   '・削除直後は「元に戻す」、後から戻す場合は上部の🗑\n' +
   '・テキストや画像ファイルはボードへドロップして取り込み\n' +
+  '・右上の⚙からバックアップ復元・ZIP保存・全TXT書き出し\n' +
   '・Ctrl+ホイールで全体ズーム、Ctrl+F で検索\n' +
   '・入力は自動で保存されます\n';
 
@@ -145,6 +153,22 @@ export class Storage {
         await fs.cp(path.join(this.dir, 'items'), path.join(target, 'items'), { recursive: true });
       } catch {
         /* 本文がまだ無い新規ボード */
+      }
+      try {
+        const sourceImages = path.join(this.dir, 'images');
+        const targetImages = path.join(target, 'images');
+        await fs.mkdir(targetImages, { recursive: true });
+        for (const file of await fs.readdir(sourceImages)) {
+          const src = path.join(sourceImages, file);
+          const dest = path.join(targetImages, file);
+          try {
+            await fs.link(src, dest);
+          } catch {
+            await fs.copyFile(src, dest);
+          }
+        }
+      } catch {
+        /* 画像がまだ無い */
       }
       const entries = (await fs.readdir(root, { withFileTypes: true }))
         .filter((e) => e.isDirectory() && e.name.startsWith('snapshot-'))
@@ -368,5 +392,157 @@ export class Storage {
     }
     if (!(await this.fromTrash(trashName, this.imageFile(meta.image.file)))) return null;
     return { kind: 'image', image: meta.image };
+  }
+
+  async listBackups(): Promise<BackupInfo[]> {
+    try {
+      const root = path.join(this.dir, 'backups');
+      const entries = await fs.readdir(root, { withFileTypes: true });
+      const out: BackupInfo[] = [];
+      for (const entry of entries) {
+        if (!entry.isDirectory() || !SNAPSHOT_NAME_RE.test(entry.name)) continue;
+        const board = await this.readBoardFile(path.join(root, entry.name, 'board.json'));
+        if (!board) continue;
+        const stat = await fs.stat(path.join(root, entry.name));
+        out.push({
+          name: entry.name,
+          createdAt: stat.mtime.toISOString(),
+          itemCount: board.items.length,
+          tabCount: board.items.reduce((sum, item) => sum + item.tabs.length, 0),
+        });
+      }
+      return out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    } catch {
+      return [];
+    }
+  }
+
+  private async exists(target: string): Promise<boolean> {
+    try {
+      await fs.access(target);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** 検証済みデータを現在位置へ入れ替える。失敗時は元のディレクトリを戻す */
+  private async replaceCurrent(sourceRoot: string, replaceImages: boolean): Promise<void> {
+    const sourceBoard = await this.readBoardFile(path.join(sourceRoot, 'board.json'));
+    if (!sourceBoard) throw new Error('invalid board in restore source');
+    await this.createBackup();
+
+    const token = stamp();
+    const nextRoot = path.join(this.dir, `.replace-next-${token}`);
+    const oldRoot = path.join(this.dir, `.replace-old-${token}`);
+    const currentItems = path.join(this.dir, 'items');
+    const currentImages = path.join(this.dir, 'images');
+    const oldBoard = await fs.readFile(this.boardFile, 'utf8').catch(() => '');
+    await fs.mkdir(nextRoot, { recursive: true });
+    await fs.mkdir(oldRoot, { recursive: true });
+    if (await this.exists(path.join(sourceRoot, 'items'))) {
+      await fs.cp(path.join(sourceRoot, 'items'), path.join(nextRoot, 'items'), { recursive: true });
+    } else {
+      await fs.mkdir(path.join(nextRoot, 'items'));
+    }
+    if (replaceImages) {
+      if (await this.exists(path.join(sourceRoot, 'images'))) {
+        await fs.cp(path.join(sourceRoot, 'images'), path.join(nextRoot, 'images'), { recursive: true });
+      } else {
+        await fs.mkdir(path.join(nextRoot, 'images'));
+      }
+    }
+
+    let movedItems = false;
+    let movedImages = false;
+    try {
+      if (await this.exists(currentItems)) {
+        await fs.rename(currentItems, path.join(oldRoot, 'items'));
+        movedItems = true;
+      }
+      if (replaceImages && (await this.exists(currentImages))) {
+        await fs.rename(currentImages, path.join(oldRoot, 'images'));
+        movedImages = true;
+      }
+      await fs.rename(path.join(nextRoot, 'items'), currentItems);
+      if (replaceImages) await fs.rename(path.join(nextRoot, 'images'), currentImages);
+      await this.writeAtomic(this.boardFile, JSON.stringify(sourceBoard, null, 2));
+      await fs.rm(oldRoot, { recursive: true, force: true });
+    } catch (err) {
+      await fs.rm(currentItems, { recursive: true, force: true });
+      if (movedItems) await fs.rename(path.join(oldRoot, 'items'), currentItems).catch(() => undefined);
+      if (replaceImages) {
+        await fs.rm(currentImages, { recursive: true, force: true });
+        if (movedImages) await fs.rename(path.join(oldRoot, 'images'), currentImages).catch(() => undefined);
+      }
+      if (oldBoard) await this.writeAtomic(this.boardFile, oldBoard);
+      throw err;
+    } finally {
+      await fs.rm(nextRoot, { recursive: true, force: true });
+      await fs.rm(oldRoot, { recursive: true, force: true });
+    }
+  }
+
+  async restoreBackup(name: string): Promise<boolean> {
+    if (!SNAPSHOT_NAME_RE.test(name)) throw new Error('invalid snapshot name');
+    const source = path.join(this.dir, 'backups', name);
+    if (!(await this.readBoardFile(path.join(source, 'board.json')))) return false;
+    await this.replaceCurrent(source, true);
+    return true;
+  }
+
+  async exportArchive(file: string): Promise<void> {
+    const zip = new AdmZip();
+    zip.addLocalFile(this.boardFile);
+    for (const folder of ['items', 'images']) {
+      const full = path.join(this.dir, folder);
+      if (await this.exists(full)) zip.addLocalFolder(full, folder);
+    }
+    zip.addFile('notepalette-backup.json', Buffer.from(JSON.stringify({ version: 1, createdAt: new Date().toISOString() }, null, 2)));
+    zip.writeZip(file);
+  }
+
+  async importArchive(file: string): Promise<void> {
+    const zip = new AdmZip(file);
+    const entries = zip.getEntries();
+    let total = 0;
+    for (const entry of entries) {
+      const name = entry.entryName.replace(/\\/g, '/');
+      if (name.startsWith('/') || name.includes('../')) throw new Error('unsafe zip path');
+      if (!(name === 'board.json' || name === 'notepalette-backup.json' || name.startsWith('items/') || name.startsWith('images/'))) {
+        throw new Error(`unexpected zip entry: ${name}`);
+      }
+      total += Number(entry.header.size);
+      if (total > 2 * 1024 * 1024 * 1024) throw new Error('backup is too large');
+    }
+    if (!entries.some((entry) => entry.entryName.replace(/\\/g, '/') === 'board.json')) throw new Error('board.json missing');
+    const stage = path.join(this.dir, `.import-${stamp()}`);
+    try {
+      await fs.mkdir(stage, { recursive: true });
+      zip.extractAllTo(stage, true);
+      await this.replaceCurrent(stage, true);
+    } finally {
+      await fs.rm(stage, { recursive: true, force: true });
+    }
+  }
+
+  async exportAllText(targetParent: string): Promise<string> {
+    const board = await this.readBoardFile(this.boardFile);
+    if (!board) throw new Error('board unavailable');
+    const target = path.join(targetParent, `NotePalette-export-${stamp()}`);
+    await fs.mkdir(target, { recursive: true });
+    for (const [index, item] of board.items.entries()) {
+      const folder = path.join(target, `${String(index + 1).padStart(3, '0')}-${safeFileName(item.title, '付箋')}`);
+      await fs.mkdir(folder, { recursive: true });
+      for (const [tabIndex, tab] of item.tabs.entries()) {
+        const text = await fs.readFile(this.tabFile(item.id, tab.id), 'utf8').catch(() => '');
+        const file = `${String(tabIndex + 1).padStart(2, '0')}-${safeFileName(tab.title, 'メモ')}.txt`;
+        await fs.writeFile(path.join(folder, file), text, 'utf8');
+      }
+    }
+    if (await this.exists(path.join(this.dir, 'images'))) {
+      await fs.cp(path.join(this.dir, 'images'), path.join(target, 'images'), { recursive: true });
+    }
+    return target;
   }
 }

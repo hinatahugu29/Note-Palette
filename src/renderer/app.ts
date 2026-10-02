@@ -20,6 +20,8 @@ const ZOOM_MAX = 3;
 const SNAP = 8;
 const IMG_MAX_W = 320;
 const LARGE_TEXT_FILE = 5 * 1024 * 1024;
+const HUGE_TEXT_FILE = 50 * 1024 * 1024;
+const HUGE_PREVIEW_SIZE = 5 * 1024 * 1024;
 const TEXT_EXT = new Set([
   'txt', 'md', 'markdown', 'html', 'htm', 'css', 'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx',
   'json', 'jsonl', 'xml', 'csv', 'tsv', 'log', 'yaml', 'yml', 'toml', 'ini', 'conf', 'cfg',
@@ -76,6 +78,9 @@ const trashDialogEl = must<HTMLElement>('trash-dialog');
 const trashListEl = must<HTMLElement>('trash-list');
 const archiveDialogEl = must<HTMLElement>('archive-dialog');
 const archiveListEl = must<HTMLElement>('archive-list');
+const dataMenuEl = must<HTMLElement>('data-menu');
+const backupDialogEl = must<HTMLElement>('backup-dialog');
+const backupListEl = must<HTMLElement>('backup-list');
 const layoutBtn = must<HTMLButtonElement>('btn-layout');
 const zoomBtn = must<HTMLButtonElement>('btn-zoom');
 const viewMenu = must<HTMLElement>('view-menu');
@@ -136,6 +141,9 @@ function showUndo(message: string, undo: () => Promise<void>): void {
 
 function openPanelMenu(item: Item, anchor: HTMLElement): void {
   panelMenuItem = item;
+  const activeTab = item.tabs.find((tab) => tab.id === item.activeTab);
+  const sourceButton = panelMenuEl.querySelector<HTMLButtonElement>('[data-action="source"]');
+  if (sourceButton) sourceButton.hidden = !activeTab?.source;
   const rect = anchor.getBoundingClientRect();
   panelMenuEl.hidden = false;
   const width = panelMenuEl.offsetWidth;
@@ -201,6 +209,74 @@ function openArchive(): void {
     });
     row.append(info, restore);
     archiveListEl.appendChild(row);
+  }
+}
+
+async function openBackups(): Promise<void> {
+  backupDialogEl.hidden = false;
+  backupListEl.textContent = '';
+  backupListEl.appendChild(el('div', 'trash-empty', '読み込み中…'));
+  const backups = await api.listBackups();
+  backupListEl.textContent = '';
+  if (backups.length === 0) {
+    backupListEl.appendChild(el('div', 'trash-empty', '利用できるバックアップはありません'));
+    return;
+  }
+  for (const backup of backups) {
+    const row = el('div', 'trash-row');
+    const info = el('div', 'trash-info');
+    info.append(
+      el('div', 'trash-name', new Date(backup.createdAt).toLocaleString('ja-JP')),
+      el('div', 'trash-meta', `${backup.itemCount}付箋・${backup.tabCount}タブ`),
+    );
+    const restore = el('button', undefined, 'この時点へ戻す');
+    restore.addEventListener('click', () => {
+      if (!confirm('現在の状態を退避して、このバックアップへ戻しますか?')) return;
+      restore.disabled = true;
+      void saveNow()
+        .then((saved) => {
+          if (!saved) throw new Error('save before restore failed');
+          return api.restoreBackup(backup.name);
+        })
+        .then((ok) => {
+          if (!ok) throw new Error('backup restore failed');
+          location.reload();
+        })
+        .catch((err) => {
+          console.error(err);
+          restore.disabled = false;
+          showNotice('バックアップを復元できませんでした');
+        });
+    });
+    row.append(info, restore);
+    backupListEl.appendChild(row);
+  }
+}
+
+async function runDataAction(action: string): Promise<void> {
+  dataMenuEl.hidden = true;
+  try {
+    if (action === 'backups') {
+      await openBackups();
+    } else if (action === 'archive-export') {
+      if (!(await saveNow())) throw new Error('save before export failed');
+      const saved = await api.exportArchive();
+      if (saved) showNotice('ZIPバックアップを保存しました');
+    } else if (action === 'archive-import') {
+      if (!confirm('現在の状態を退避して、ZIPバックアップの内容へ入れ替えますか?')) return;
+      if (!(await saveNow())) throw new Error('save before import failed');
+      if (await api.importArchive()) location.reload();
+    } else if (action === 'text-export') {
+      if (!(await saveNow())) throw new Error('save before export failed');
+      const folder = await api.exportAllText();
+      if (folder) showNotice('全付箋を書き出しました');
+    } else if (action === 'open-folder') {
+      const error = await api.openDataFolder();
+      if (error) throw new Error(error);
+    }
+  } catch (err) {
+    console.error(err);
+    showNotice('データ操作に失敗しました');
   }
 }
 
@@ -280,11 +356,14 @@ let boardDirty = false;
 const dirtyTabs = new Map<string, string>(); // tabId -> itemId
 let saveTimer: number | undefined;
 let inflight = 0;
+let saveError = false;
 
 function updateStatus(): void {
   const pending = boardDirty || dirtyTabs.size > 0 || inflight > 0;
-  statusEl.textContent = pending ? '保存中…' : '保存済み';
+  statusEl.textContent = saveError ? '保存エラー・再試行' : pending ? '保存中…' : '保存済み';
   statusEl.classList.toggle('dirty', pending);
+  statusEl.classList.toggle('error', saveError);
+  statusEl.title = saveError ? 'クリックして保存を再試行' : '保存状態';
 }
 
 function scheduleSave(): void {
@@ -303,24 +382,35 @@ function markTabDirty(itemId: string, tabId: string): void {
   scheduleSave();
 }
 
-async function saveNow(): Promise<void> {
+async function saveNow(): Promise<boolean> {
   window.clearTimeout(saveTimer);
+  const saveBoard = boardDirty;
+  const tabs = [...dirtyTabs];
   const jobs: Promise<void>[] = [];
-  if (boardDirty) {
+  if (saveBoard) {
     boardDirty = false;
     jobs.push(api.saveBoard(board));
   }
-  for (const [tabId, itemId] of dirtyTabs) {
+  for (const [tabId, itemId] of tabs) {
     jobs.push(api.saveTab(itemId, tabId, texts[tabId] ?? ''));
+    if (dirtyTabs.get(tabId) === itemId) dirtyTabs.delete(tabId);
   }
-  dirtyTabs.clear();
   inflight += jobs.length;
   updateStatus();
   try {
     await Promise.all(jobs);
+    saveError = false;
+    return true;
   } catch (err) {
-    statusEl.textContent = '保存エラー';
+    if (saveBoard) boardDirty = true;
+    for (const [tabId, itemId] of tabs) {
+      const stillExists = board.items.some((item) => item.id === itemId && item.tabs.some((tab) => tab.id === tabId));
+      if (stillExists) dirtyTabs.set(tabId, itemId);
+    }
+    saveError = true;
+    showNotice('保存できませんでした。右上の保存エラーから再試行できます');
     console.error(err);
+    return false;
   } finally {
     inflight -= jobs.length;
     if (inflight === 0) updateStatus();
@@ -762,8 +852,8 @@ function setupResize(item: Box, handle: HTMLElement): void {
 
 // ---------------------------------------------------------------- 付箋・タブの操作
 
-function newTab(title: string): Tab {
-  return { id: uid(), title, scroll: 0 };
+function newTab(title: string, source?: Tab['source']): Tab {
+  return { id: uid(), title, scroll: 0, source };
 }
 
 function addPanel(x?: number, y?: number): void {
@@ -908,7 +998,7 @@ async function removeTab(item: Item, tab: Tab): Promise<void> {
     (item.pinned || hasText([tab])) &&
     !confirm(`タブ「${tab.title}」を削除しますか?\n(本文は保存フォルダ内の trash に移動されます)`)
   ) return;
-  await saveNow();
+  if (!(await saveNow())) return;
   const view = views.get(item.id)!;
   const idx = item.tabs.indexOf(tab);
   const deletedText = texts[tab.id] ?? '';
@@ -939,7 +1029,7 @@ async function removePanel(item: Item): Promise<void> {
     (item.pinned || hasText(item.tabs)) &&
     !confirm('この付箋を削除しますか?\n(本文は保存フォルダ内の trash に移動されます)')
   ) return;
-  await saveNow();
+  if (!(await saveNow())) return;
   const itemIndex = board.items.indexOf(item);
   const deletedTexts = Object.fromEntries(item.tabs.map((tab) => [tab.id, texts[tab.id] ?? '']));
   const view = views.get(item.id)!;
@@ -1096,7 +1186,7 @@ async function addImage(blob: Blob, ext: string, cx?: number, cy?: number): Prom
 async function removeImage(item: ImageItem): Promise<void> {
   const view = imgViews.get(item.id);
   if (!view) return;
-  await saveNow();
+  if (!(await saveNow())) return;
   const imageIndex = board.images.indexOf(item);
   const bytes = await api.readImage(item.file);
   view.el.remove();
@@ -1140,40 +1230,71 @@ function isTextFile(file: File): boolean {
   return file.type.startsWith('text/') || TEXT_EXT.has(ext);
 }
 
-function decodeTextFile(bytes: ArrayBuffer): string {
+function decodeTextFile(bytes: ArrayBuffer): { text: string; encoding: string } {
   const data = new Uint8Array(bytes);
   if (data[0] === 0xef && data[1] === 0xbb && data[2] === 0xbf) {
-    return new TextDecoder('utf-8').decode(data.subarray(3));
+    return { text: new TextDecoder('utf-8').decode(data.subarray(3)), encoding: 'UTF-8 BOM' };
   }
   if (data[0] === 0xff && data[1] === 0xfe) {
-    return new TextDecoder('utf-16le').decode(data.subarray(2));
+    return { text: new TextDecoder('utf-16le').decode(data.subarray(2)), encoding: 'UTF-16 LE' };
   }
   if (data[0] === 0xfe && data[1] === 0xff) {
-    return new TextDecoder('utf-16be').decode(data.subarray(2));
+    return { text: new TextDecoder('utf-16be').decode(data.subarray(2)), encoding: 'UTF-16 BE' };
   }
   try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(data);
+    return { text: new TextDecoder('utf-8', { fatal: true }).decode(data), encoding: 'UTF-8' };
   } catch {
-    return new TextDecoder('shift_jis').decode(data);
+    return { text: new TextDecoder('shift_jis').decode(data), encoding: 'Shift_JIS' };
   }
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 async function addTextFiles(files: File[], cx?: number, cy?: number): Promise<void> {
   if (files.length === 0) return;
-  const large = files.filter((file) => file.size > LARGE_TEXT_FILE);
+  const huge = files.filter((file) => file.size > HUGE_TEXT_FILE);
+  if (
+    huge.length > 0 &&
+    !confirm(
+      `${huge.map((file) => `${file.name} (${formatSize(file.size)})`).join('\n')}\n\n` +
+      '非常に大きなファイルです。OKを押すと先頭5MBだけをプレビューとして取り込みます。',
+    )
+  ) return;
+  const large = files.filter((file) => file.size > LARGE_TEXT_FILE && file.size <= HUGE_TEXT_FILE);
   if (
     large.length > 0 &&
-    !confirm(`${large.map((file) => file.name).join('\n')}\n\n5MBを超えるファイルです。読み込みますか?`)
+    !confirm(
+      `${large.map((file) => `${file.name} (${formatSize(file.size)})`).join('\n')}\n\n` +
+      '大きなファイルです。表示・検索・自動保存が重くなる可能性があります。読み込みますか?',
+    )
   ) return;
 
   try {
     const imported = await Promise.all(
-      files.map(async (file) => ({ name: file.name, text: decodeTextFile(await file.arrayBuffer()) })),
+      files.map(async (file) => {
+        const truncated = file.size > HUGE_TEXT_FILE;
+        const decoded = decodeTextFile(await (truncated ? file.slice(0, HUGE_PREVIEW_SIZE) : file).arrayBuffer());
+        return {
+          name: truncated ? `${file.name} (先頭5MB)` : file.name,
+          text: truncated ? `${decoded.text}\n\n[NotePalette: 先頭5MBのみ表示しています]` : decoded.text,
+          source: {
+            fileName: file.name,
+            size: file.size,
+            encoding: decoded.encoding,
+            importedAt: new Date().toISOString(),
+            truncated,
+          },
+        };
+      }),
     );
     const { w: bw, h: bh } = boardSize();
     const w = Math.min(420, bw);
     const h = Math.min(300, bh);
-    const tabs = imported.map(({ name }) => newTab(name));
+    const tabs = imported.map(({ name, source }) => newTab(name, source));
     const item: Item = {
       id: uid(),
       kind: 'panel',
@@ -1302,11 +1423,26 @@ function jumpToNextHit(): void {
 // ---------------------------------------------------------------- 起動
 
 function bindGlobalEvents(): void {
+  statusEl.addEventListener('click', () => {
+    if (saveError) void saveNow();
+  });
   must('btn-new').addEventListener('click', () => addPanel());
   must('btn-archive').addEventListener('click', openArchive);
   must('archive-close').addEventListener('click', () => (archiveDialogEl.hidden = true));
   archiveDialogEl.addEventListener('click', (e) => {
     if (e.target === archiveDialogEl) archiveDialogEl.hidden = true;
+  });
+  must('btn-data').addEventListener('click', (e) => {
+    e.stopPropagation();
+    dataMenuEl.hidden = !dataMenuEl.hidden;
+  });
+  dataMenuEl.addEventListener('click', (e) => {
+    const action = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-data-action]')?.dataset.dataAction;
+    if (action) void runDataAction(action);
+  });
+  must('backup-close').addEventListener('click', () => (backupDialogEl.hidden = true));
+  backupDialogEl.addEventListener('click', (e) => {
+    if (e.target === backupDialogEl) backupDialogEl.hidden = true;
   });
   must('btn-trash').addEventListener('click', () => void openTrash());
   must('trash-close').addEventListener('click', () => (trashDialogEl.hidden = true));
@@ -1339,6 +1475,7 @@ function bindGlobalEvents(): void {
   document.addEventListener('click', (e) => {
     if (!(e.target as HTMLElement).closest('#view-menu-wrap')) viewMenu.hidden = true;
     if (!(e.target as HTMLElement).closest('#help-wrap')) helpMenu.hidden = true;
+    if (!(e.target as HTMLElement).closest('#data-wrap')) dataMenuEl.hidden = true;
     if (!(e.target as HTMLElement).closest('#search-wrap')) searchResultsEl.hidden = true;
     if (!(e.target as HTMLElement).closest('#panel-menu, .actions')) panelMenuEl.hidden = true;
   });
@@ -1349,6 +1486,18 @@ function bindGlobalEvents(): void {
     panelMenuEl.hidden = true;
     if (action === 'color') cycleColor(item);
     else if (action === 'export') void exportActiveTab(item);
+    else if (action === 'source') {
+      const tab = item.tabs.find((candidate) => candidate.id === item.activeTab);
+      if (tab?.source) {
+        alert(
+          `元ファイル: ${tab.source.fileName}\n` +
+          `容量: ${formatSize(tab.source.size)}\n` +
+          `文字コード: ${tab.source.encoding}\n` +
+          `取り込み日時: ${new Date(tab.source.importedAt).toLocaleString('ja-JP')}\n` +
+          `${tab.source.truncated ? '先頭5MBのみ取り込み\n' : ''}\n元ファイルとは連携していません。`,
+        );
+      }
+    }
     else if (action === 'duplicate') {
       setActive(item);
       duplicateActiveItem();
@@ -1406,7 +1555,9 @@ function bindGlobalEvents(): void {
       e.preventDefault();
       setZoom(1);
     } else if (e.key === 'Escape') {
-      if (!archiveDialogEl.hidden) {
+      if (!backupDialogEl.hidden) {
+        backupDialogEl.hidden = true;
+      } else if (!archiveDialogEl.hidden) {
         archiveDialogEl.hidden = true;
       } else if (!trashDialogEl.hidden) {
         trashDialogEl.hidden = true;
@@ -1464,7 +1615,9 @@ function bindGlobalEvents(): void {
     void addTextFiles(textFiles, e.clientX - rect.left - 120, e.clientY - rect.top - 18);
   });
 
-  api.onFlushRequest(saveNow);
+  api.onFlushRequest(async () => {
+    await saveNow();
+  });
 }
 
 async function main(): Promise<void> {
