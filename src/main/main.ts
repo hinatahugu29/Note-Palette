@@ -113,6 +113,7 @@ ipcMain.handle('create-backup', () => storage.createBackup());
 ipcMain.handle('save-image', (_e, ext: string, data: ArrayBuffer) => storage.saveImage(ext, data));
 ipcMain.handle('read-image', (_e, file: string) => storage.readImage(file));
 ipcMain.handle('remove-image', (_e, file: string) => storage.removeImage(file));
+ipcMain.handle('restore-image', (_e, trashName: string, file: string) => storage.restoreImage(trashName, file));
 ipcMain.handle('copy-text', (_e, text: string) => clipboard.writeText(String(text)));
 ipcMain.handle('export-text', async (e, title: string, text: string) => {
   const safeTitle = String(title || 'メモ').replace(/[\\/:*?"<>|]/g, '_').trim() || 'メモ';

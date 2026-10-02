@@ -70,6 +70,7 @@ export interface NoteApi {
   saveImage(ext: string, data: ArrayBuffer): Promise<string>;
   readImage(file: string): Promise<ArrayBuffer | null>;
   removeImage(file: string): Promise<string | null>;
+  restoreImage(trashName: string, file: string): Promise<boolean>;
   /** クリップボードの先頭へ置く */
   copyText(text: string): Promise<void>;
   /** 保存済み画像をクリップボードへ。失敗時 false */

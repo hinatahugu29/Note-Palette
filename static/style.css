@@ -41,7 +41,13 @@ body { display: flex; flex-direction: column; }
   cursor: pointer;
 }
 #toolbar button:hover { background: #3b3e45; }
-#view-menu-wrap { position: relative; }
+#view-menu-wrap, #help-wrap { position: relative; }
+#help-wrap > button { width: 28px; padding: 0; }
+#help-menu { width: 280px; }
+.shortcuts { margin: 0; }
+.shortcuts div { display: flex; gap: 12px; padding: 4px 0; }
+.shortcuts dt { width: 96px; color: #b7cdfb; font-family: Consolas, monospace; }
+.shortcuts dd { margin: 0; color: var(--fg); }
 #view-menu-wrap > button { min-width: 88px; }
 .popover {
   position: absolute;

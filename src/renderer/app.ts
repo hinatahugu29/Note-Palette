@@ -68,6 +68,7 @@ const panelMenuEl = must<HTMLElement>('panel-menu');
 const layoutBtn = must<HTMLButtonElement>('btn-layout');
 const zoomBtn = must<HTMLButtonElement>('btn-zoom');
 const viewMenu = must<HTMLElement>('view-menu');
+const helpMenu = must<HTMLElement>('help-menu');
 const uniformFontSelect = must<HTMLSelectElement>('uniform-font-size');
 const unifyFontBtn = must<HTMLButtonElement>('btn-unify-font');
 
@@ -938,6 +939,8 @@ async function removeImage(item: ImageItem): Promise<void> {
   const view = imgViews.get(item.id);
   if (!view) return;
   await saveNow();
+  const imageIndex = board.images.indexOf(item);
+  const bytes = await api.readImage(item.file);
   view.el.remove();
   URL.revokeObjectURL(view.url);
   imgViews.delete(item.id);
@@ -945,8 +948,23 @@ async function removeImage(item: ImageItem): Promise<void> {
   if (board.view.maximizedId === item.id) board.view.maximizedId = null;
   boardDirty = false;
   await api.saveBoard(board);
-  await api.removeImage(item.file);
+  const trashName = await api.removeImage(item.file);
   layoutAll();
+  showUndo('画像を削除しました', async () => {
+    let restored = Boolean(trashName && (await api.restoreImage(trashName, item.file)));
+    let restoredBytes = bytes;
+    if (!restored && bytes) {
+      const ext = item.file.split('.').pop() ?? 'png';
+      item.file = await api.saveImage(ext, bytes);
+      restored = true;
+    }
+    if (!restoredBytes && restored) restoredBytes = await api.readImage(item.file);
+    if (!restored || !restoredBytes) throw new Error('image restore failed');
+    board.images.splice(Math.min(imageIndex, board.images.length), 0, item);
+    createImageView(item, restoredBytes);
+    layoutAll();
+    await api.saveBoard(board);
+  });
 }
 
 function imageFilesOf(list: DataTransferItemList | FileList | null): File[] {
@@ -1062,6 +1080,10 @@ function bindGlobalEvents(): void {
     e.stopPropagation();
     viewMenu.hidden = !viewMenu.hidden;
   });
+  must('btn-help').addEventListener('click', (e) => {
+    e.stopPropagation();
+    helpMenu.hidden = !helpMenu.hidden;
+  });
   must('zoom-out').addEventListener('click', () => setZoom(board.view.zoom / 1.1));
   must('zoom-reset').addEventListener('click', () => setZoom(1));
   must('zoom-in').addEventListener('click', () => setZoom(board.view.zoom * 1.1));
@@ -1074,6 +1096,7 @@ function bindGlobalEvents(): void {
   unifyFontBtn.addEventListener('click', () => unifyFontSize(Number(uniformFontSelect.value)));
   document.addEventListener('click', (e) => {
     if (!(e.target as HTMLElement).closest('#view-menu-wrap')) viewMenu.hidden = true;
+    if (!(e.target as HTMLElement).closest('#help-wrap')) helpMenu.hidden = true;
     if (!(e.target as HTMLElement).closest('#search-wrap')) searchResultsEl.hidden = true;
     if (!(e.target as HTMLElement).closest('#panel-menu, .actions')) panelMenuEl.hidden = true;
   });
@@ -1140,7 +1163,9 @@ function bindGlobalEvents(): void {
       e.preventDefault();
       setZoom(1);
     } else if (e.key === 'Escape') {
-      if (!viewMenu.hidden) {
+      if (!helpMenu.hidden) {
+        helpMenu.hidden = true;
+      } else if (!viewMenu.hidden) {
         viewMenu.hidden = true;
       } else if (document.activeElement === searchEl || query) {
         searchEl.value = '';

@@ -264,6 +264,10 @@ export class Storage {
     return this.toTrash(this.imageFile(file), file);
   }
 
+  restoreImage(trashName: string, file: string): Promise<boolean> {
+    return this.fromTrash(trashName, this.imageFile(file));
+  }
+
   async removeItem(itemId: string): Promise<string | null> {
     return this.toTrash(this.itemDir(itemId), itemId);
   }

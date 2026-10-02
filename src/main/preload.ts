@@ -13,6 +13,7 @@ const api: NoteApi = {
   saveImage: (ext, data) => ipcRenderer.invoke('save-image', ext, data),
   readImage: (file) => ipcRenderer.invoke('read-image', file),
   removeImage: (file) => ipcRenderer.invoke('remove-image', file),
+  restoreImage: (trashName, file) => ipcRenderer.invoke('restore-image', trashName, file),
   copyText: (text) => ipcRenderer.invoke('copy-text', text),
   copyImage: (file) => ipcRenderer.invoke('copy-image', file),
   exportText: (title, text) => ipcRenderer.invoke('export-text', title, text),
