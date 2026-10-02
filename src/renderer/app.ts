@@ -33,6 +33,7 @@ interface Rect {
 interface PanelView {
   item: Item;
   el: HTMLElement;
+  titleEl: HTMLElement;
   tabsEl: HTMLElement;
   bodyEl: HTMLElement;
   fontSizeEl: HTMLElement;
@@ -58,10 +59,12 @@ let searchCursor = -1;
 const boardEl = must<HTMLElement>('board');
 const searchEl = must<HTMLInputElement>('search');
 const searchInfoEl = must<HTMLElement>('search-info');
+const searchResultsEl = must<HTMLElement>('search-results');
 const statusEl = must<HTMLElement>('status');
 const noticeEl = must<HTMLElement>('notice');
 const noticeTextEl = must<HTMLElement>('notice-text');
 const noticeActionEl = must<HTMLButtonElement>('notice-action');
+const panelMenuEl = must<HTMLElement>('panel-menu');
 const layoutBtn = must<HTMLButtonElement>('btn-layout');
 const zoomBtn = must<HTMLButtonElement>('btn-zoom');
 const viewMenu = must<HTMLElement>('view-menu');
@@ -90,6 +93,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
 }
 
 let noticeTimer: number | undefined;
+let panelMenuItem: Item | null = null;
 function showNotice(message: string): void {
   window.clearTimeout(noticeTimer);
   noticeTextEl.textContent = message;
@@ -116,6 +120,16 @@ function showUndo(message: string, undo: () => Promise<void>): void {
   };
   noticeEl.hidden = false;
   noticeTimer = window.setTimeout(() => (noticeEl.hidden = true), 6000);
+}
+
+function openPanelMenu(item: Item, anchor: HTMLElement): void {
+  panelMenuItem = item;
+  const rect = anchor.getBoundingClientRect();
+  panelMenuEl.hidden = false;
+  const width = panelMenuEl.offsetWidth;
+  const height = panelMenuEl.offsetHeight;
+  panelMenuEl.style.left = `${clamp(rect.right - width, 6, window.innerWidth - width - 6)}px`;
+  panelMenuEl.style.top = `${clamp(rect.bottom + 3, 6, window.innerHeight - height - 6)}px`;
 }
 
 // ---------------------------------------------------------------- 保存(自動・デバウンス)
@@ -254,6 +268,8 @@ function bringToFront(item: Box): void {
 function createView(item: Item): PanelView {
   const root = el('div', `panel c${item.color}`);
   const header = el('div', 'header');
+  const titleEl = el('div', 'item-title', item.title);
+  titleEl.title = '付箋タイトル（ダブルクリックで変更）';
   const tabsEl = el('div', 'tabs');
   const addTab = el('button', 'add-tab', '+');
   addTab.title = 'タブを追加';
@@ -284,21 +300,18 @@ function createView(item: Item): PanelView {
   pinBtn.classList.add('pin');
   pinBtn.classList.toggle('active', item.pinned);
   pinBtn.title = item.pinned ? '保護を解除' : 'この付箋を閉じないよう保護';
-  btn('●', '色を変更', () => cycleColor(item));
   const copyBtn = btn('⧉', 'アクティブなタブの本文をクリップボードへコピー', () => {
     const ta = views.get(item.id)?.areas.get(item.activeTab);
     void api.copyText(ta?.value ?? '').then(() => flashDone(copyBtn));
   });
-  btn('⇩', '現在のタブをテキストとして保存 (Ctrl+S)', () => void exportActiveTab(item));
-  btn('⤢', '最大化 / 元に戻す (Esc)', () => toggleMax(item));
-  btn('×', 'この付箋を削除(ゴミ箱フォルダへ移動)', () => void removePanel(item));
+  const menuBtn = btn('⋯', 'その他の操作', () => openPanelMenu(item, menuBtn));
 
   addTab.addEventListener('click', () => addTabTo(item));
-  header.append(tabsEl, addTab, spacer, actions);
+  header.append(titleEl, tabsEl, addTab, spacer, actions);
   root.append(header, bodyEl, resize);
   boardEl.appendChild(root);
 
-  const view: PanelView = { item, el: root, tabsEl, bodyEl, fontSizeEl, pinBtn, areas: new Map() };
+  const view: PanelView = { item, el: root, titleEl, tabsEl, bodyEl, fontSizeEl, pinBtn, areas: new Map() };
   views.set(item.id, view);
 
   root.addEventListener(
@@ -314,8 +327,12 @@ function createView(item: Item): PanelView {
   setupResize(item, resize);
   header.addEventListener('dblclick', (e) => {
     const t = e.target as HTMLElement;
-    if (t.closest('button') || t.closest('.tab') || t.closest('input')) return;
+    if (t.closest('button') || t.closest('.tab') || t.closest('.item-title') || t.closest('input')) return;
     toggleMax(item);
+  });
+  titleEl.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    beginItemRename(item);
   });
 
   root.style.setProperty('--fs', String(item.fontSize));
@@ -425,6 +442,34 @@ function beginRename(item: Item, tab: Tab, tabEl: HTMLElement): void {
     else if (e.key === 'Escape') finish(false);
   });
   input.addEventListener('click', (e) => e.stopPropagation());
+}
+
+function beginItemRename(item: Item): void {
+  const view = views.get(item.id)!;
+  const input = el('input');
+  input.value = item.title;
+  view.titleEl.textContent = '';
+  view.titleEl.appendChild(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const finish = (commit: boolean) => {
+    if (done) return;
+    done = true;
+    const value = input.value.trim();
+    if (commit && value && value !== item.title) {
+      item.title = value;
+      markBoardDirty();
+      if (query) runSearch(false);
+    }
+    view.titleEl.textContent = item.title;
+  };
+  input.addEventListener('blur', () => finish(true));
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') finish(true);
+    else if (e.key === 'Escape') finish(false);
+  });
 }
 
 // ---------------------------------------------------------------- 操作(ドラッグ・リサイズ)
@@ -593,6 +638,7 @@ function addPanel(x?: number, y?: number): void {
     z: top + 1,
     color: n % COLOR_COUNT,
     fontSize: 14,
+    title: `付箋 ${n + 1}`,
     pinned: false,
     tabs: [tab],
     activeTab: tab.id,
@@ -641,6 +687,35 @@ function activeItem(): Item | undefined {
 function newTabInActive(): void {
   const item = activeItem();
   if (item) addTabTo(item);
+}
+
+function duplicateActiveItem(): void {
+  const source = activeItem();
+  if (!source) return;
+  const { w: bw, h: bh } = boardSize();
+  const tabs = source.tabs.map((tab) => ({ ...tab, id: uid(), scroll: 0 }));
+  const copy: Item = {
+    ...source,
+    id: uid(),
+    title: `${source.title} のコピー`,
+    x: clamp(source.x + 24, 0, bw - source.w),
+    y: clamp(source.y + 24, 0, bh - source.h),
+    z: topZ() + 1,
+    pinned: false,
+    tabs,
+    activeTab: tabs[source.tabs.findIndex((tab) => tab.id === source.activeTab)]?.id ?? tabs[0].id,
+  };
+  source.tabs.forEach((tab, index) => {
+    texts[tabs[index].id] = texts[tab.id] ?? '';
+    markTabDirty(copy.id, tabs[index].id);
+  });
+  board.items.push(copy);
+  if (board.view.maximizedId) board.view.maximizedId = null;
+  createView(copy);
+  layoutAll();
+  setActive(copy);
+  markBoardDirty();
+  showNotice('付箋を複製しました');
 }
 
 /** アクティブなタブを閉じる。最後の1つなら付箋ごと閉じる(中身があれば確認、trash に退避) */
@@ -772,7 +847,9 @@ function unifyFontSize(size: number): void {
 
 function cycleColor(item: Item): void {
   item.color = (item.color + 1) % COLOR_COUNT;
-  views.get(item.id)!.el.className = `panel c${item.color}`;
+  const root = views.get(item.id)!.el;
+  for (let i = 0; i < COLOR_COUNT; i++) root.classList.remove(`c${i}`);
+  root.classList.add(`c${item.color}`);
   layoutAll();
   markBoardDirty();
 }
@@ -890,44 +967,86 @@ function setZoom(z: number): void {
 
 // ---------------------------------------------------------------- 検索
 
-function matchingItems(): Item[] {
-  return board.items.filter((it) => it.tabs.some(tabMatches));
+interface SearchHit {
+  item: Item;
+  tab: Tab;
 }
 
-function runSearch(resetCursor: boolean): void {
-  query = searchEl.value.trim().toLowerCase();
-  if (resetCursor) searchCursor = -1;
-  const hits = matchingItems();
-  for (const v of views.values()) {
-    v.el.classList.toggle('dim', query !== '' && !v.item.tabs.some(tabMatches));
-    renderTabs(v);
+function searchHits(): SearchHit[] {
+  if (!query) return [];
+  const hits: SearchHit[] = [];
+  for (const item of board.items) {
+    const tabHits = item.tabs.filter(tabMatches);
+    if (tabHits.length > 0) {
+      tabHits.forEach((tab) => hits.push({ item, tab }));
+    } else if (item.title.toLowerCase().includes(query)) {
+      const tab = item.tabs.find((t) => t.id === item.activeTab) ?? item.tabs[0];
+      if (tab) hits.push({ item, tab });
+    }
   }
-  searchInfoEl.textContent = query ? `${hits.length} 件の付箋` : '';
+  return hits;
 }
 
-function jumpToNextHit(): void {
-  const hits = matchingItems();
-  if (hits.length === 0) return;
-  searchCursor = (searchCursor + 1) % hits.length;
-  const item = hits[searchCursor];
+function resultSnippet(tab: Tab): string {
+  const text = (texts[tab.id] ?? '').replace(/\s+/g, ' ').trim();
+  if (!text) return '本文なし';
+  const pos = text.toLowerCase().indexOf(query);
+  return text.slice(Math.max(0, pos - 24), Math.max(0, pos - 24) + 72);
+}
+
+function jumpToHit({ item, tab }: SearchHit): void {
   const view = views.get(item.id)!;
-  const tab = item.tabs.find(tabMatches)!;
   if (board.view.maximizedId && board.view.maximizedId !== item.id) {
     board.view.maximizedId = null;
     layoutAll();
   }
   bringToFront(item);
+  setActive(item);
   activateTab(item, tab.id, false);
   view.el.classList.add('flash');
   window.setTimeout(() => view.el.classList.remove('flash'), 900);
+  searchResultsEl.hidden = true;
   const ta = view.areas.get(tab.id)!;
   const pos = ta.value.toLowerCase().indexOf(query);
-  if (pos >= 0) {
-    requestAnimationFrame(() => {
-      ta.focus();
-      ta.setSelectionRange(pos, pos + query.length);
-    });
+  requestAnimationFrame(() => {
+    ta.focus();
+    if (pos >= 0) ta.setSelectionRange(pos, pos + query.length);
+  });
+}
+
+function renderSearchResults(hits: SearchHit[]): void {
+  searchResultsEl.textContent = '';
+  searchResultsEl.hidden = !query;
+  for (const hit of hits.slice(0, 50)) {
+    const button = el('button');
+    button.append(
+      el('span', 'result-title', `${hit.item.title} › ${hit.tab.title}`),
+      el('span', 'result-snippet', resultSnippet(hit.tab)),
+    );
+    button.addEventListener('click', () => jumpToHit(hit));
+    searchResultsEl.appendChild(button);
   }
+  if (query && hits.length === 0) searchResultsEl.appendChild(el('div', 'result-snippet', '一致するメモはありません'));
+}
+
+function runSearch(resetCursor: boolean): void {
+  query = searchEl.value.trim().toLowerCase();
+  if (resetCursor) searchCursor = -1;
+  const hits = searchHits();
+  const hitIds = new Set(hits.map((hit) => hit.item.id));
+  for (const v of views.values()) {
+    v.el.classList.toggle('dim', query !== '' && !hitIds.has(v.item.id));
+    renderTabs(v);
+  }
+  searchInfoEl.textContent = query ? `${hits.length} 件` : '';
+  renderSearchResults(hits);
+}
+
+function jumpToNextHit(): void {
+  const hits = searchHits();
+  if (hits.length === 0) return;
+  searchCursor = (searchCursor + 1) % hits.length;
+  jumpToHit(hits[searchCursor]);
 }
 
 // ---------------------------------------------------------------- 起動
@@ -955,6 +1074,21 @@ function bindGlobalEvents(): void {
   unifyFontBtn.addEventListener('click', () => unifyFontSize(Number(uniformFontSelect.value)));
   document.addEventListener('click', (e) => {
     if (!(e.target as HTMLElement).closest('#view-menu-wrap')) viewMenu.hidden = true;
+    if (!(e.target as HTMLElement).closest('#search-wrap')) searchResultsEl.hidden = true;
+    if (!(e.target as HTMLElement).closest('#panel-menu, .actions')) panelMenuEl.hidden = true;
+  });
+  panelMenuEl.addEventListener('click', (e) => {
+    const action = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
+    const item = panelMenuItem;
+    if (!action || !item) return;
+    panelMenuEl.hidden = true;
+    if (action === 'color') cycleColor(item);
+    else if (action === 'export') void exportActiveTab(item);
+    else if (action === 'duplicate') {
+      setActive(item);
+      duplicateActiveItem();
+    } else if (action === 'maximize') toggleMax(item);
+    else if (action === 'delete') void removePanel(item);
   });
 
   boardEl.addEventListener('dblclick', (e) => {
@@ -996,6 +1130,9 @@ function bindGlobalEvents(): void {
     } else if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 's') {
       e.preventDefault();
       void exportActiveTab();
+    } else if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'd') {
+      e.preventDefault();
+      duplicateActiveItem();
     } else if (e.ctrlKey && e.key.toLowerCase() === 'n') {
       e.preventDefault();
       addPanel();

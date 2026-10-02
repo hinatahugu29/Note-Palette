@@ -33,6 +33,7 @@ export function defaultBoard(): Board {
         z: 1,
         color: 0,
         fontSize: 14,
+        title: 'ようこそ',
         pinned: false,
         tabs: [{ id: 'welcome-1', title: 'メモ', scroll: 0 }],
         activeTab: 'welcome-1',
@@ -47,6 +48,7 @@ const WELCOME_TEXT =
   '・ボードの空いている所をダブルクリックで新しい付箋\n' +
   '・タブの + で付箋内にタブを追加 / タブをダブルクリックで名前変更\n' +
   '・付箋のヘッダーをダブルクリックで最大化(Esc で戻る)\n' +
+  '・付箋タイトルはダブルクリックで変更、Ctrl+D で付箋を複製\n' +
   '・📌で付箋を閉じないよう保護、Ctrl+S で現在のタブを書き出し\n' +
   '・Ctrl+ホイールで全体ズーム、Ctrl+F で検索\n' +
   '・入力は自動で保存されます\n';
@@ -97,7 +99,10 @@ export class Storage {
       const b = JSON.parse(await fs.readFile(file, 'utf8')) as Board;
       if (!b || b.version !== 1 || !Array.isArray(b.items)) return null;
       b.images ??= [];
-      for (const item of b.items) item.pinned ??= false;
+      for (const item of b.items) {
+        item.pinned ??= false;
+        item.title ??= item.tabs[0]?.title || '付箋';
+      }
       return b;
     } catch {
       return null;

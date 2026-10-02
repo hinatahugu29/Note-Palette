@@ -16,6 +16,7 @@ export interface Item {
   z: number;
   color: number;
   fontSize: number;
+  title: string;
   /** 誤操作によるタブ・付箋の削除を防ぐ */
   pinned: boolean;
   tabs: Tab[];
