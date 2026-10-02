@@ -38,6 +38,11 @@ try {
     '.', 'NotePalette', '--platform=win32', '--arch=x64', '--out=release', '--overwrite', '--prune=true',
     '--icon=icon.ico', '--ignore=^/(src|release|scripts|tests|docs|tsconfig.*|HANDOVER.md|.gitignore)',
   ]);
+  // Chromium の言語パックは日本語と英語(フォールバック)だけ残す。UI文言はアプリ側で持つため影響しない
+  const localesDir = path.join(appDir, 'locales');
+  for (const name of fs.readdirSync(localesDir)) {
+    if (!['ja.pak', 'en-US.pak'].includes(name)) fs.rmSync(path.join(localesDir, name));
+  }
   fs.copyFileSync(path.join(root, 'docs', 'NotePalette-manual.html'), path.join(appDir, 'NotePalette-manual.html'));
   fs.writeFileSync(
     path.join(appDir, 'portable.txt'),

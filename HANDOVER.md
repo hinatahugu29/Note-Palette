@@ -88,7 +88,7 @@ npm install
 npm start          # ビルド + 起動
 npm run build      # ビルドのみ
 npm test           # ビルド + 保存層の自動テスト
-npm run pack       # release/NotePalette-win32-x64/NotePalette.exe を生成(@electron/packager、約370MB。起動確認済み)
+npm run pack       # release/NotePalette-win32-x64/NotePalette.exe を生成(@electron/packager、約340MB。言語パックは ja/en-US のみ同梱。起動確認済み)
 ```
 - 構成: Electron 44 + TypeScript 7(バンドラなし。`tsc` のみ)。main は CommonJS、renderer は ES Modules。
 - `src/main/` main プロセス(`storage.ts`=保存層、`preload.ts`=IPC橋渡し)、`src/renderer/app.ts`=UI全体、`src/shared/types.ts`=データモデル、`static/`=HTML/CSS。
@@ -155,5 +155,5 @@ npm run pack       # release/NotePalette-win32-x64/NotePalette.exe を生成(@el
 - ピン留め(常に最前面など)
 - 付箋の独立ウィンドウ化(`mode: 'detached'`。未着手。Item のUI部品は置き場所非依存に作る方針)
 - インストーラ化(electron-builder 等。個人利用中のため当面後回し)
-- 保存先の変更UI、検索結果の一覧表示
+- 保存先の変更UI
 - 要件の出典: 会話での構想整理(付箋のような俯瞰性 / Notepad++のような不揮発性 / 付箋内タブ / タイル配置・最大化・文字サイズ変更 / 画像の仮置き)。
