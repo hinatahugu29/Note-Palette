@@ -24,7 +24,7 @@ const LARGE_TEXT_FILE = 5 * 1024 * 1024;
 const HUGE_TEXT_FILE = 50 * 1024 * 1024;
 const HUGE_PREVIEW_SIZE = 5 * 1024 * 1024;
 
-/** ボード上に置かれる要素(付箋 or 画像) */
+/** ボード上に置かれる要素（ノート or 画像） */
 type Box = Item | ImageItem;
 
 interface PanelView {
@@ -129,7 +129,7 @@ async function openTrash(): Promise<void> {
     trashListEl.appendChild(el('div', 'trash-empty', '復元できる項目はありません'));
     return;
   }
-  const kindLabel = { item: '付箋', tab: 'タブ', image: '画像' } as const;
+  const kindLabel = { item: 'ノート', tab: 'ページ', image: '画像' } as const;
   for (const entry of entries) {
     const row = el('div', 'trash-row');
     const info = el('div', 'trash-info');
@@ -152,7 +152,7 @@ function openArchive(): void {
   archiveListEl.textContent = '';
   const archived = board.items.filter((item) => item.archived);
   if (archived.length === 0) {
-    archiveListEl.appendChild(el('div', 'trash-empty', '収納中の付箋はありません'));
+    archiveListEl.appendChild(el('div', 'trash-empty', '収納中のノートはありません'));
     return;
   }
   for (const item of archived) {
@@ -160,7 +160,7 @@ function openArchive(): void {
     const info = el('div', 'trash-info');
     info.append(
       el('div', 'trash-name', item.title),
-      el('div', 'trash-meta', `${item.tabs.length} タブ`),
+      el('div', 'trash-meta', `${item.tabs.length} ページ`),
     );
     const restore = el('button', undefined, 'ボードへ戻す');
     restore.addEventListener('click', () => {
@@ -172,7 +172,7 @@ function openArchive(): void {
       activateTab(item, item.activeTab, true);
       markBoardDirty();
       openArchive();
-      showNotice('付箋をボードへ戻しました');
+      showNotice('ノートをボードへ戻しました');
     });
     row.append(info, restore);
     archiveListEl.appendChild(row);
@@ -194,7 +194,7 @@ async function openBackups(): Promise<void> {
     const info = el('div', 'trash-info');
     info.append(
       el('div', 'trash-name', new Date(backup.createdAt).toLocaleString('ja-JP')),
-      el('div', 'trash-meta', `${backup.itemCount}付箋・${backup.tabCount}タブ`),
+      el('div', 'trash-meta', `${backup.itemCount}ノート・${backup.tabCount}ページ`),
     );
     const restore = el('button', undefined, 'この時点へ戻す');
     restore.addEventListener('click', () => {
@@ -236,7 +236,7 @@ async function runDataAction(action: string): Promise<void> {
     } else if (action === 'text-export') {
       if (!(await saveNow())) throw new Error('save before export failed');
       const folder = await api.exportAllText();
-      if (folder) showNotice('全付箋を書き出しました');
+      if (folder) showNotice('全ノートを書き出しました');
     } else if (action === 'open-folder') {
       const error = await api.openDataFolder();
       if (error) throw new Error(error);
@@ -255,7 +255,7 @@ async function restoreTrashEntry(trashName: string): Promise<void> {
   }
   if (result.kind === 'item') {
     if (board.items.some((item) => item.id === result.item.id)) {
-      showNotice('同じ付箋があるため復元できません');
+      showNotice('同じノートがあるため復元できません');
       return;
     }
     result.item.z = topZ() + 1;
@@ -459,10 +459,10 @@ function createView(item: Item): PanelView {
   const root = el('div', `panel c${item.color}`);
   const header = el('div', 'header');
   const titleEl = el('div', 'item-title', item.title);
-  titleEl.title = '付箋タイトル（ダブルクリックで変更）';
+  titleEl.title = 'ノート名（ダブルクリックで変更）';
   const tabsEl = el('div', 'tabs');
   const addTab = el('button', 'add-tab', '+');
-  addTab.title = 'タブを追加';
+  addTab.title = 'ページを追加';
   const spacer = el('div', 'spacer');
   const actions = el('div', 'actions');
   const fontControl = el('div', 'font-control');
@@ -478,19 +478,19 @@ function createView(item: Item): PanelView {
     return b;
   };
   const smaller = el('button', undefined, 'A−');
-  smaller.title = 'この付箋の文字を小さくする';
+  smaller.title = 'このノートの文字を小さくする';
   smaller.addEventListener('click', (e) => changeFont(item, e.shiftKey ? -2 : -1));
   const larger = el('button', undefined, 'A+');
-  larger.title = 'この付箋の文字を大きくする';
+  larger.title = 'このノートの文字を大きくする';
   larger.addEventListener('click', (e) => changeFont(item, e.shiftKey ? 2 : 1));
-  fontSizeEl.title = 'この付箋の文字サイズ';
+  fontSizeEl.title = 'このノートの文字サイズ';
   fontControl.append(smaller, fontSizeEl, larger);
   actions.appendChild(fontControl);
   const pinBtn = btn('📌', '', () => togglePin(item));
   pinBtn.classList.add('pin');
   pinBtn.classList.toggle('active', item.pinned);
-  pinBtn.title = item.pinned ? '保護を解除' : 'この付箋を閉じないよう保護';
-  const copyBtn = btn('⧉', 'アクティブなタブの本文をクリップボードへコピー', () => {
+  pinBtn.title = item.pinned ? '保護を解除' : 'このノートを閉じないよう保護';
+  const copyBtn = btn('⧉', '現在のページの本文をクリップボードへコピー', () => {
     const ta = views.get(item.id)?.areas.get(item.activeTab);
     void api.copyText(ta?.value ?? '').then(() => flashDone(copyBtn));
   });
@@ -572,12 +572,14 @@ function renderTabs(view: PanelView): void {
   tabsEl.textContent = '';
   for (const tab of item.tabs) {
     const t = el('div', 'tab');
+    t.dataset.tabId = tab.id;
+    t.title = 'ページ名（ダブルクリックで変更）';
     t.classList.toggle('active', tab.id === item.activeTab);
     t.classList.toggle('hit', tabMatches(tab));
     t.appendChild(el('span', 'title', tab.title));
     if (item.tabs.length > 1) {
       const close = el('span', 'close', '×');
-      close.title = 'このタブを削除(ゴミ箱フォルダへ移動)';
+      close.title = 'このページを削除（ゴミ箱へ移動）';
       close.addEventListener('click', (e) => {
         e.stopPropagation();
         void removeTab(item, tab);
@@ -600,13 +602,29 @@ function activateTab(item: Item, tabId: string, focus: boolean): void {
     item.activeTab = tabId;
     markBoardDirty();
   }
-  renderTabs(view);
+  // クリックのたびにページDOMを作り直すと、1回目と2回目のクリック対象が
+  // 別要素になり dblclick が成立しない。選択状態だけを更新する。
+  for (const tabEl of view.tabsEl.querySelectorAll<HTMLElement>('.tab')) {
+    tabEl.classList.toggle('active', tabEl.dataset.tabId === tabId);
+  }
+  for (const [id, area] of view.areas) area.classList.toggle('active', id === tabId);
   const ta = view.areas.get(tabId)!;
   const tab = item.tabs.find((t) => t.id === tabId)!;
   requestAnimationFrame(() => {
     ta.scrollTop = tab.scroll;
     if (focus) ta.focus();
   });
+}
+
+function beginActivePageRename(item: Item): void {
+  const tab = item.tabs.find((candidate) => candidate.id === item.activeTab);
+  const view = views.get(item.id);
+  const tabEl = view
+    ? Array.from(view.tabsEl.querySelectorAll<HTMLElement>('.tab')).find(
+        (candidate) => candidate.dataset.tabId === tab?.id,
+      )
+    : undefined;
+  if (tab && tabEl) beginRename(item, tab, tabEl);
 }
 
 function beginRename(item: Item, tab: Tab, tabEl: HTMLElement): void {
@@ -724,7 +742,7 @@ function setupDrag(item: Box, el: HTMLElement, header: HTMLElement): void {
   });
 }
 
-/** タイル表示中: 付箋を別のタイルへドロップして並べ替える */
+/** タイル表示中: ノートを別のタイルへドロップして並べ替える */
 function startTileReorder(e: PointerEvent, item: Box, el: HTMLElement): void {
   const tiles = tileRects();
   const boardRect = boardEl.getBoundingClientRect();
@@ -762,7 +780,7 @@ function startTileReorder(e: PointerEvent, item: Box, el: HTMLElement): void {
   window.addEventListener('pointercancel', up);
 }
 
-/** タイル配置の順(付箋→画像)を、from を to の位置へ移動して更新する */
+/** タイル配置の順（ノート→画像）を、from を to の位置へ移動して更新する */
 function reorder(from: Box, to: Box): void {
   const list = allBoxes();
   const archived = board.items.filter((item) => item.archived);
@@ -801,7 +819,7 @@ function setupResize(item: Box, handle: HTMLElement): void {
   });
 }
 
-// ---------------------------------------------------------------- 付箋・タブの操作
+// ---------------------------------------------------------------- ノート・ページの操作
 
 function newTab(title: string, source?: Tab['source']): Tab {
   return { id: uid(), title, scroll: 0, source };
@@ -811,7 +829,7 @@ function addPanel(x?: number, y?: number): void {
   const { w: bw, h: bh } = boardSize();
   const n = board.items.length;
   const top = topZ();
-  const tab = newTab('メモ');
+  const tab = newTab('ページ1');
   const item: Item = {
     id: uid(),
     kind: 'panel',
@@ -822,7 +840,7 @@ function addPanel(x?: number, y?: number): void {
     z: top + 1,
     color: n % COLOR_COUNT,
     fontSize: 14,
-    title: `付箋 ${n + 1}`,
+    title: `ノート ${n + 1}`,
     archived: false,
     pinned: false,
     tabs: [tab],
@@ -840,7 +858,7 @@ function addPanel(x?: number, y?: number): void {
 }
 
 function addTabTo(item: Item): void {
-  const tab = newTab(`タブ${item.tabs.length + 1}`);
+  const tab = newTab(`ページ${item.tabs.length + 1}`);
   texts[tab.id] = '';
   item.tabs.push(tab);
   ensureArea(views.get(item.id)!, tab);
@@ -861,7 +879,7 @@ function setActive(item: Item): void {
   for (const v of views.values()) v.el.classList.toggle('current', v.item.id === activeId);
 }
 
-/** ショートカットの対象。最後に触った付箋、無ければ最前面の付箋 */
+/** ショートカットの対象。最後に触ったノート、無ければ最前面のノート */
 function activeItem(): Item | undefined {
   return (
     board.items.find((i) => !i.archived && i.id === activeId) ??
@@ -869,7 +887,7 @@ function activeItem(): Item | undefined {
   );
 }
 
-/** アクティブな付箋のタブを前後に巡回する(端では反対側へ) */
+/** アクティブなノートのページを前後に巡回する（端では反対側へ） */
 function cycleTabInActive(step: 1 | -1): void {
   const item = activeItem();
   if (!item || item.tabs.length < 2) return;
@@ -910,10 +928,10 @@ function duplicateActiveItem(): void {
   layoutAll();
   setActive(copy);
   markBoardDirty();
-  showNotice('付箋を複製しました');
+  showNotice('ノートを複製しました');
 }
 
-/** アクティブなタブを閉じる。最後の1つなら付箋ごと閉じる(中身があれば確認、trash に退避) */
+/** アクティブなページを閉じる。最後の1つならノートごと閉じる（中身があれば確認、trash に退避） */
 function closeActiveTab(): void {
   const item = activeItem();
   if (!item) return;
@@ -933,8 +951,8 @@ function togglePin(item: Item): void {
   item.pinned = !item.pinned;
   const view = views.get(item.id)!;
   view.pinBtn.classList.toggle('active', item.pinned);
-  view.pinBtn.title = item.pinned ? '保護を解除' : 'この付箋を閉じないよう保護';
-  showNotice(item.pinned ? 'この付箋をピン留めしました' : 'ピン留めを解除しました');
+  view.pinBtn.title = item.pinned ? '保護を解除' : 'このノートを閉じないよう保護';
+  showNotice(item.pinned ? 'このノートをピン留めしました' : 'ピン留めを解除しました');
   markBoardDirty();
 }
 
@@ -956,7 +974,7 @@ async function removeTab(item: Item, tab: Tab): Promise<void> {
   if (item.tabs.length <= 1) return;
   if (
     (item.pinned || hasText([tab])) &&
-    !confirm(`タブ「${tab.title}」を削除しますか?\n(本文は保存フォルダ内の trash に移動されます)`)
+    !confirm(`ページ「${tab.title}」を削除しますか?\n(本文は保存フォルダ内の trash に移動されます)`)
   ) return;
   if (!(await saveNow())) return;
   const view = views.get(item.id)!;
@@ -972,7 +990,7 @@ async function removeTab(item: Item, tab: Tab): Promise<void> {
   await api.saveBoard(board);
   const trashName = await api.removeTab(item.id, tab);
   activateTab(item, item.activeTab, false);
-  showUndo(`タブ「${tab.title}」を削除しました`, async () => {
+  showUndo(`ページ「${tab.title}」を削除しました`, async () => {
     item.tabs.splice(Math.min(idx, item.tabs.length), 0, tab);
     texts[tab.id] = deletedText;
     ensureArea(view, tab);
@@ -987,7 +1005,7 @@ async function removeTab(item: Item, tab: Tab): Promise<void> {
 async function removePanel(item: Item): Promise<void> {
   if (
     (item.pinned || hasText(item.tabs)) &&
-    !confirm('この付箋を削除しますか?\n(本文は保存フォルダ内の trash に移動されます)')
+    !confirm('このノートを削除しますか?\n(本文は保存フォルダ内の trash に移動されます)')
   ) return;
   if (!(await saveNow())) return;
   const itemIndex = board.items.indexOf(item);
@@ -1006,7 +1024,7 @@ async function removePanel(item: Item): Promise<void> {
   const trashName = await api.removeItem(item);
   layoutAll();
   runSearch(false);
-  showUndo('付箋を削除しました', async () => {
+  showUndo('ノートを削除しました', async () => {
     board.items.splice(Math.min(itemIndex, board.items.length), 0, item);
     Object.assign(texts, deletedTexts);
     if (!trashName || !(await api.restoreItem(trashName, item.id))) {
@@ -1031,7 +1049,7 @@ function archiveItem(item: Item): void {
   layoutAll();
   runSearch(false);
   markBoardDirty();
-  showNotice('付箋を収納しました');
+  showNotice('ノートを収納しました');
 }
 
 function changeFont(item: Item, delta: number): void {
@@ -1328,7 +1346,7 @@ function renderSearchResults(hits: SearchHit[]): void {
     button.addEventListener('click', () => jumpToHit(hit));
     searchResultsEl.appendChild(button);
   }
-  if (query && hits.length === 0) searchResultsEl.appendChild(el('div', 'result-snippet', '一致するメモはありません'));
+  if (query && hits.length === 0) searchResultsEl.appendChild(el('div', 'result-snippet', '一致するページはありません'));
 }
 
 function runSearch(resetCursor: boolean): void {
@@ -1417,6 +1435,8 @@ function bindGlobalEvents(): void {
     if (!action || !item) return;
     panelMenuEl.hidden = true;
     if (action === 'color') cycleColor(item);
+    else if (action === 'rename-note') beginItemRename(item);
+    else if (action === 'rename-page') beginActivePageRename(item);
     else if (action === 'export') void exportActiveTab(item);
     else if (action === 'source') {
       const tab = item.tabs.find((candidate) => candidate.id === item.activeTab);

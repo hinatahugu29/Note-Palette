@@ -196,7 +196,7 @@ ipcMain.handle('import-archive', async (e) => {
 });
 ipcMain.handle('export-all-text', async (e) => {
   const win = BrowserWindow.fromWebContents(e.sender) ?? undefined;
-  const options: OpenDialogOptions = { title: '全付箋の書き出し先', properties: ['openDirectory', 'createDirectory'] };
+  const options: OpenDialogOptions = { title: '全ノートの書き出し先', properties: ['openDirectory', 'createDirectory'] };
   const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
   if (result.canceled || !result.filePaths[0]) return null;
   return storage.exportAllText(result.filePaths[0]);
@@ -210,10 +210,10 @@ ipcMain.handle('open-manual', () => {
 });
 ipcMain.handle('copy-text', (_e, text: string) => clipboard.writeText(String(text)));
 ipcMain.handle('export-text', async (e, title: string, text: string) => {
-  const safeTitle = String(title || 'メモ').replace(/[\\/:*?"<>|]/g, '_').trim() || 'メモ';
+  const safeTitle = String(title || 'ページ').replace(/[\\/:*?"<>|]/g, '_').trim() || 'ページ';
   const win = BrowserWindow.fromWebContents(e.sender) ?? undefined;
   const options = {
-    title: 'タブをテキストとして保存',
+    title: 'ページをテキストとして保存',
     defaultPath: `${safeTitle}.txt`,
     filters: [
       { name: 'テキストファイル', extensions: ['txt'] },

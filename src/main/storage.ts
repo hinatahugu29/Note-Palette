@@ -49,7 +49,7 @@ export function defaultBoard(): Board {
         title: 'ようこそ',
         archived: false,
         pinned: false,
-        tabs: [{ id: 'welcome-1', title: 'メモ', scroll: 0 }],
+        tabs: [{ id: 'welcome-1', title: 'ページ1', scroll: 0 }],
         activeTab: 'welcome-1',
         mode: 'board',
       },
@@ -59,11 +59,11 @@ export function defaultBoard(): Board {
 
 const WELCOME_TEXT =
   'NotePalette へようこそ。\n\n' +
-  '・ボードの空いている所をダブルクリックで新しい付箋\n' +
-  '・タブの + で付箋内にタブを追加 / タブをダブルクリックで名前変更\n' +
-  '・付箋のヘッダーをダブルクリックで最大化(Esc で戻る)\n' +
-  '・付箋タイトルはダブルクリックで変更、Ctrl+D で付箋を複製\n' +
-  '・📌で付箋を閉じないよう保護、Ctrl+S で現在のタブを書き出し\n' +
+  '・ボードの空いている所をダブルクリックで新しいノート\n' +
+  '・ページの + でノート内にページを追加 / ページ名はダブルクリックで変更\n' +
+  '・ノートのヘッダーをダブルクリックで最大化(Esc で戻る)\n' +
+  '・ノート名はダブルクリックで変更、Ctrl+D でノートを複製\n' +
+  '・📌でノートを閉じないよう保護、Ctrl+S で現在のページを書き出し\n' +
   '・削除直後は「元に戻す」、後から戻す場合は上部の🗑\n' +
   '・テキストや画像ファイルはボードへドロップして取り込み\n' +
   '・右上の⚙からバックアップ復元・ZIP保存・全TXT書き出し\n' +
@@ -119,7 +119,12 @@ export class Storage {
       for (const item of b.items) {
         item.pinned ??= false;
         item.archived ??= false;
-        item.title ??= item.tabs[0]?.title || '付箋';
+        item.title ??= item.tabs[0]?.title || 'ノート';
+        item.title = item.title.replace(/^付箋 (\d+)$/, 'ノート $1');
+        item.tabs.forEach((tab, index) => {
+          if (index === 0 && tab.title === 'メモ') tab.title = 'ページ1';
+          else tab.title = tab.title.replace(/^タブ(\d+)$/, 'ページ$1');
+        });
       }
       return b;
     } catch {
@@ -141,7 +146,7 @@ export class Storage {
     }
   }
 
-  /** 配置情報と全タブ本文を同じ時点のスナップショットとして保存する */
+  /** 配置情報と全ページ本文を同じ時点のスナップショットとして保存する */
   async createBackup(): Promise<void> {
     try {
       await fs.access(this.boardFile);
@@ -227,6 +232,9 @@ export class Storage {
       texts['welcome-1'] = WELCOME_TEXT;
       await this.saveBoard(board);
       await this.saveTab('welcome', 'welcome-1', WELCOME_TEXT);
+    } else {
+      // 旧版の既定名を含む互換データも、現在の画面用語で保存し直す。
+      await this.saveBoard(board);
     }
     return { board, texts, dataDir: this.dir };
   }
@@ -532,11 +540,11 @@ export class Storage {
     const target = path.join(targetParent, `NotePalette-export-${stamp()}`);
     await fs.mkdir(target, { recursive: true });
     for (const [index, item] of board.items.entries()) {
-      const folder = path.join(target, `${String(index + 1).padStart(3, '0')}-${safeFileName(item.title, '付箋')}`);
+      const folder = path.join(target, `${String(index + 1).padStart(3, '0')}-${safeFileName(item.title, 'ノート')}`);
       await fs.mkdir(folder, { recursive: true });
       for (const [tabIndex, tab] of item.tabs.entries()) {
         const text = await fs.readFile(this.tabFile(item.id, tab.id), 'utf8').catch(() => '');
-        const file = `${String(tabIndex + 1).padStart(2, '0')}-${safeFileName(tab.title, 'メモ')}.txt`;
+        const file = `${String(tabIndex + 1).padStart(2, '0')}-${safeFileName(tab.title, 'ページ')}.txt`;
         await fs.writeFile(path.join(folder, file), text, 'utf8');
       }
     }

@@ -28,33 +28,33 @@
   </style>
 </head>
 <body>
-<header><div><h1>NotePalette 使い方マニュアル</h1><p>付箋のように見渡せて、自動で残るメモアプリ</p></div></header>
+<header><div><h1>NotePalette 使い方マニュアル</h1><p>複数のノートを見渡せて、自動で残るメモアプリ</p></div></header>
 <main>
-  <nav><strong>目次</strong><a href="#start">はじめに</a><a href="#notes">付箋とタブ</a><a href="#view">配置と表示</a><a href="#import">ファイル・画像</a><a href="#search">検索</a><a href="#safety">保存と復旧</a><a href="#shortcuts">ショートカット</a><a href="#portable">別PCへの移動</a></nav>
+  <nav><strong>目次</strong><a href="#start">はじめに</a><a href="#notes">ノートとページ</a><a href="#view">配置と表示</a><a href="#import">ファイル・画像</a><a href="#search">検索</a><a href="#safety">保存と復旧</a><a href="#shortcuts">ショートカット</a><a href="#portable">別PCへの移動</a></nav>
   <article>
-    <section id="start"><h2>はじめに</h2><p class="lead"><code>NotePalette.exe</code> を起動すればすぐ使えます。入力内容、配置、開いているタブは自動保存されるため、通常の利用で保存操作は不要です。</p><div class="note">上部右端の保存表示が「保存済み」になれば保存完了です。「保存エラー・再試行」と表示された場合は、そこをクリックしてください。</div></section>
+    <section id="start"><h2>はじめに</h2><p class="lead"><code>NotePalette.exe</code> を起動すればすぐ使えます。入力内容、配置、開いているページは自動保存されるため、通常の利用で保存操作は不要です。</p><div class="note">上部右端の保存表示が「保存済み」になれば保存完了です。「保存エラー・再試行」と表示された場合は、そこをクリックしてください。</div></section>
 
-    <section id="notes"><h2>付箋とタブ</h2>
-      <h3>付箋を作る</h3><ul><li>上部の「＋ 新規」を押す</li><li>ボードの空いている場所をダブルクリックする</li><li><kbd>Ctrl</kbd>＋<kbd>N</kbd>を押す</li></ul>
-      <h3>付箋を操作する</h3><ul><li>ヘッダーをドラッグ：移動</li><li>右下をドラッグ：大きさの変更</li><li>ヘッダーをダブルクリック：最大化／元に戻す</li><li>タイトルをダブルクリック：タイトル変更</li><li>「⋯」：色変更、書き出し、複製、収納、最大化、削除</li><li>📌：誤って閉じないよう保護</li><li>⧉：現在の本文をクリップボードへコピー</li></ul>
-      <h3>タブを使う</h3><ul><li>タブ列の「＋」または<kbd>Ctrl</kbd>＋<kbd>T</kbd>：新しいタブ</li><li>タブ名をダブルクリック：名前変更</li><li><kbd>Ctrl</kbd>＋<kbd>Tab</kbd>／<kbd>Ctrl</kbd>＋<kbd>Shift</kbd>＋<kbd>Tab</kbd>：次／前のタブへ移動（端では反対側へ循環）</li><li><kbd>Ctrl</kbd>＋<kbd>W</kbd>：現在のタブを閉じる。最後の1タブなら付箋を閉じる</li><li>本文中の<kbd>Tab</kbd>：字下げ</li></ul>
-      <div class="note">青い枠の付箋が、ショートカット操作の対象です。📌をオンにすると、<kbd>Ctrl</kbd>＋<kbd>W</kbd>では閉じなくなります。</div>
+    <section id="notes"><h2>ノートとページ</h2>
+      <h3>ノートを作る</h3><ul><li>上部の「＋ 新規」を押す</li><li>ボードの空いている場所をダブルクリックする</li><li><kbd>Ctrl</kbd>＋<kbd>N</kbd>を押す</li></ul>
+      <h3>ノートを操作する</h3><ul><li>ヘッダーをドラッグ：移動</li><li>右下をドラッグ：大きさの変更</li><li>ヘッダーをダブルクリック：最大化／元に戻す</li><li>タイトルをダブルクリック：タイトル変更</li><li>「⋯」：色変更、書き出し、複製、収納、最大化、削除</li><li>📌：誤って閉じないよう保護</li><li>⧉：現在の本文をクリップボードへコピー</li></ul>
+      <h3>ページを使う</h3><ul><li>ページ列の「＋」または<kbd>Ctrl</kbd>＋<kbd>T</kbd>：新しいページ</li><li>ページ名をダブルクリック：名前変更</li><li><kbd>Ctrl</kbd>＋<kbd>Tab</kbd>／<kbd>Ctrl</kbd>＋<kbd>Shift</kbd>＋<kbd>Tab</kbd>：次／前のページへ移動（端では反対側へ循環）</li><li><kbd>Ctrl</kbd>＋<kbd>W</kbd>：現在のページを閉じる。最後の1ページならノートを閉じる</li><li>本文中の<kbd>Tab</kbd>：字下げ</li></ul>
+      <div class="note">青い枠のノートが、ショートカット操作の対象です。📌をオンにすると、<kbd>Ctrl</kbd>＋<kbd>W</kbd>では閉じなくなります。</div>
     </section>
 
-    <section id="view"><h2>配置・表示・文字サイズ</h2><ul><li>「自由配置／タイル表示」：好きな配置と自動整列を切り替えます。自由配置の位置は保持されます。</li><li>各付箋の <strong>A−／A＋</strong>：その付箋だけ文字サイズを変更。<kbd>Shift</kbd>を押しながらなら2pxずつ変更します。</li><li>右上の「表示 ○%」：画面全体の倍率変更と、すべての付箋の文字サイズ統一。</li><li><kbd>Ctrl</kbd>＋マウスホイール：画面全体の倍率を素早く変更。</li><li><kbd>Ctrl</kbd>＋<kbd>0</kbd>：表示倍率を100%に戻す。</li></ul></section>
+    <section id="view"><h2>配置・表示・文字サイズ</h2><ul><li>「自由配置／タイル表示」：好きな配置と自動整列を切り替えます。自由配置の位置は保持されます。</li><li>各ノートの <strong>A−／A＋</strong>：そのノートだけ文字サイズを変更。<kbd>Shift</kbd>を押しながらなら2pxずつ変更します。</li><li>右上の「表示 ○%」：画面全体の倍率変更と、すべてのノートの文字サイズ統一。</li><li><kbd>Ctrl</kbd>＋マウスホイール：画面全体の倍率を素早く変更。</li><li><kbd>Ctrl</kbd>＋<kbd>0</kbd>：表示倍率を100%に戻す。</li></ul></section>
 
     <section id="import"><h2>外部ファイルと画像</h2>
-      <h3>テキストファイル</h3><p>txt、md、html、css、js、json、csv、logなどを画面へドロップすると、内容を新しい付箋として取り込みます。複数ファイルなら、1つの付箋内の複数タブになります。元ファイルとは連動しないコピーです。</p><p class="small">HTMLやスクリプトは実行せず、文字として表示します。5MB超では確認が入り、50MB超では動作保護のため先頭5MBだけを取り込みます。</p>
+      <h3>テキストファイル</h3><p>txt、md、html、css、js、json、csv、logなどを画面へドロップすると、内容を新しいノートとして取り込みます。複数ファイルなら、1つのノート内の複数ページになります。元ファイルとは連動しないコピーです。</p><p class="small">HTMLやスクリプトは実行せず、文字として表示します。5MB超では確認が入り、50MB超では動作保護のため先頭5MBだけを取り込みます。</p>
       <h3>画像</h3><p>画像ファイルをドロップするか、画像をコピーして<kbd>Ctrl</kbd>＋<kbd>V</kbd>で貼り付けます。画像も移動・拡大縮小・最大化・削除できます。</p>
-      <h3>外部へ書き出す</h3><p><kbd>Ctrl</kbd>＋<kbd>S</kbd>で現在のタブをUTF-8のテキストファイルとして保存できます。これは任意の場所へ渡すためのコピーで、以後の編集とは連動しません。</p>
+      <h3>外部へ書き出す</h3><p><kbd>Ctrl</kbd>＋<kbd>S</kbd>で現在のページをUTF-8のテキストファイルとして保存できます。これは任意の場所へ渡すためのコピーで、以後の編集とは連動しません。</p>
     </section>
 
-    <section id="search"><h2>全文検索</h2><p><kbd>Ctrl</kbd>＋<kbd>F</kbd>で検索欄へ移動します。付箋タイトル、タブ名、本文が検索対象です。結果一覧をクリックするか、<kbd>Enter</kbd>で次の結果へ移動します。<kbd>Esc</kbd>で検索を解除します。</p></section>
+    <section id="search"><h2>全文検索</h2><p><kbd>Ctrl</kbd>＋<kbd>F</kbd>で検索欄へ移動します。ノートタイトル、ページ名、本文が検索対象です。結果一覧をクリックするか、<kbd>Enter</kbd>で次の結果へ移動します。<kbd>Esc</kbd>で検索を解除します。</p></section>
 
-    <section id="safety"><h2>保存・収納・復旧</h2><ul><li><strong>▣ 収納</strong>：削除せず、ボードから一時的に隠します。収納一覧から戻せます。</li><li><strong>🗑 ゴミ箱</strong>：削除した付箋、タブ、画像を後から復元できます。削除直後は画面下の「元に戻す」も利用できます。</li><li><strong>⚙ バックアップ履歴</strong>：起動時と約1時間ごとの状態へ戻せます。</li><li><strong>⚙ 全データをZIP保存</strong>：別の場所へ完全なバックアップを作ります。</li><li><strong>⚙ ZIPバックアップを読込</strong>：ZIP保存した状態を復元します。</li><li><strong>⚙ 全付箋をTXTで書き出す</strong>：一般的なファイルとしてまとめて取り出します。</li><li><strong>⚙ 保存場所を開く</strong>：実際のデータフォルダを表示します。</li></ul><div class="note">大切な内容は、ときどき「全データをZIP保存」で別ドライブにもコピーしておくと安心です。</div></section>
+    <section id="safety"><h2>保存・収納・復旧</h2><ul><li><strong>▣ 収納</strong>：削除せず、ボードから一時的に隠します。収納一覧から戻せます。</li><li><strong>🗑 ゴミ箱</strong>：削除したノート、ページ、画像を後から復元できます。削除直後は画面下の「元に戻す」も利用できます。</li><li><strong>⚙ バックアップ履歴</strong>：起動時と約1時間ごとの状態へ戻せます。</li><li><strong>⚙ 全データをZIP保存</strong>：別の場所へ完全なバックアップを作ります。</li><li><strong>⚙ ZIPバックアップを読込</strong>：ZIP保存した状態を復元します。</li><li><strong>⚙ 全ノートをTXTで書き出す</strong>：一般的なファイルとしてまとめて取り出します。</li><li><strong>⚙ 保存場所を開く</strong>：実際のデータフォルダを表示します。</li></ul><div class="note">大切な内容は、ときどき「全データをZIP保存」で別ドライブにもコピーしておくと安心です。</div></section>
 
     <section id="shortcuts"><h2>ショートカット一覧</h2><table><thead><tr><th>キー</th><th>動作</th></tr></thead><tbody>
-      <tr><td><kbd>Ctrl</kbd>＋<kbd>N</kbd></td><td>新しい付箋</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>T</kbd></td><td>アクティブな付箋に新しいタブ</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>Tab</kbd></td><td>アクティブな付箋の次のタブへ（Shiftで前のタブ）</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>W</kbd></td><td>現在のタブ／付箋を閉じる（ピン留め中は保護）</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>D</kbd></td><td>付箋を複製</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>S</kbd></td><td>現在のタブを外部ファイルへ書き出す</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>F</kbd></td><td>全文検索</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>V</kbd></td><td>コピーした画像を貼り付け</td></tr><tr><td><kbd>Ctrl</kbd>＋ホイール</td><td>画面全体の表示倍率</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>0</kbd></td><td>表示倍率を100%へ戻す</td></tr><tr><td><kbd>Esc</kbd></td><td>検索、最大化、開いている画面を解除</td></tr><tr><td><kbd>Tab</kbd></td><td>本文へ字下げを挿入</td></tr>
+      <tr><td><kbd>Ctrl</kbd>＋<kbd>N</kbd></td><td>新しいノート</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>T</kbd></td><td>アクティブなノートに新しいページ</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>Tab</kbd></td><td>アクティブなノートの次のページへ（Shiftで前のページ）</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>W</kbd></td><td>現在のページ／ノートを閉じる（ピン留め中は保護）</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>D</kbd></td><td>ノートを複製</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>S</kbd></td><td>現在のページを外部ファイルへ書き出す</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>F</kbd></td><td>全文検索</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>V</kbd></td><td>コピーした画像を貼り付け</td></tr><tr><td><kbd>Ctrl</kbd>＋ホイール</td><td>画面全体の表示倍率</td></tr><tr><td><kbd>Ctrl</kbd>＋<kbd>0</kbd></td><td>表示倍率を100%へ戻す</td></tr><tr><td><kbd>Esc</kbd></td><td>検索、最大化、開いている画面を解除</td></tr><tr><td><kbd>Tab</kbd></td><td>本文へ字下げを挿入</td></tr>
     </tbody></table></section>
 
     <section id="portable"><h2>別PCへの移動・配布</h2><p><code>NotePalette-win32-x64</code>フォルダを、丸ごとコピーしてください。アプリ本体と、その横に作られる<code>NotePaletteData</code>にメモや設定が入っています。</p><ol><li>NotePaletteを終了する</li><li><code>NotePalette-win32-x64</code>フォルダ全体をUSBメモリなどへコピーする</li><li>別PCでフォルダ内の<code>NotePalette.exe</code>を起動する</li></ol><div class="note"><code>NotePalette.exe</code>だけを取り出すと起動できません。必ずフォルダごと移動してください。</div></section>

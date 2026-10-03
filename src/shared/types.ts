@@ -26,7 +26,7 @@ export interface Item {
   title: string;
   /** 削除せずボードから一時的に隠す */
   archived: boolean;
-  /** 誤操作によるタブ・付箋の削除を防ぐ */
+  /** 誤操作によるページ・ノートの削除を防ぐ */
   pinned: boolean;
   tabs: Tab[];
   activeTab: string;
@@ -95,7 +95,7 @@ export interface NoteApi {
   removeTab(itemId: string, tab: Tab): Promise<string | null>;
   restoreItem(trashName: string, itemId: string): Promise<boolean>;
   restoreTab(trashName: string, itemId: string, tabId: string): Promise<boolean>;
-  /** board.json と全タブ本文の世代バックアップを作る */
+  /** board.json と全ページ本文の世代バックアップを作る */
   createBackup(): Promise<void>;
   /** 画像を images/ に保存し、保存名を返す */
   saveImage(ext: string, data: ArrayBuffer): Promise<string>;
@@ -115,7 +115,7 @@ export interface NoteApi {
   copyText(text: string): Promise<void>;
   /** 保存済み画像をクリップボードへ。失敗時 false */
   copyImage(file: string): Promise<boolean>;
-  /** アクティブなタブを任意の場所へUTF-8テキストとして書き出す。キャンセル時は null */
+  /** アクティブなページを任意の場所へUTF-8テキストとして書き出す。キャンセル時は null */
   exportText(title: string, text: string): Promise<string | null>;
   /** 終了前に未保存分を書き出す要求を受ける。cb 完了後に自動で完了通知する */
   onFlushRequest(cb: () => Promise<void>): void;

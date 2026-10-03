@@ -73,17 +73,24 @@
     type(p3.querySelector('textarea'), 'みかん orange');
     await w(100);
 
-    // タブ追加・複製
+    // ページ追加・名前変更・複製
     p2.querySelector('textarea').focus();
     key('t', { ctrlKey: true });
     await w(150);
+    const firstPage = p2.querySelector('.tab');
+    firstPage.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await waitFor(() => firstPage.querySelector('input'), 'ページ名の編集開始');
+    const pageName = firstPage.querySelector('input');
+    pageName.value = 'アイデア';
+    pageName.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await waitFor(() => p2.querySelector('.tab').textContent.startsWith('アイデア'), 'ページ名の変更');
     key('d', { ctrlKey: true });
-    await waitFor(() => panelByTitle('付箋 2 のコピー'), '付箋の複製');
+    await waitFor(() => panelByTitle('ノート 2 のコピー'), 'ノートの複製');
     await w(100);
     steps.afterTabAndDuplicate = summarize();
 
-    // Ctrl+Tab でタブ巡回(付箋 2 のコピーがアクティブ。タブは メモ / タブ2)
-    const activeTabs = () => panelByTitle('付箋 2 のコピー').querySelector('.tab.active').textContent;
+    // Ctrl+Tab でページ巡回(ノート 2 のコピーがアクティブ。ページは アイデア / ページ2)
+    const activeTabs = () => panelByTitle('ノート 2 のコピー').querySelector('.tab.active').textContent;
     const cycled = [activeTabs()];
     key('Tab', { ctrlKey: true });
     await w(100);
@@ -136,15 +143,15 @@
     p2.querySelector('.max-btn').click();
     await w(150);
     steps.maximized = panels().filter((p) => p.classList.contains('max')).length;
-    steps.maxButtonLabels = [p2.querySelector('.max-btn').textContent, panelByTitle('付箋 3').querySelector('.max-btn').textContent];
+    steps.maxButtonLabels = [p2.querySelector('.max-btn').textContent, panelByTitle('ノート 3').querySelector('.max-btn').textContent];
     key('Escape');
     await w(200);
     steps.afterEscape = panels().filter((p) => p.classList.contains('max')).length;
 
-    // 空の付箋の削除 → ゴミ箱に載る
+    // 空のノートの削除 → ゴミ箱に載る
     const p4 = panelByTitle(initialTitles[0]);
     await clickMenu(p4, 'delete');
-    await waitFor(() => panels().length === 4, '付箋の削除');
+    await waitFor(() => panels().length === 4, 'ノートの削除');
     steps.afterDelete = panels().length;
     document.getElementById('btn-trash').click();
     await waitFor(() => document.querySelectorAll('#trash-list > *').length > 0, 'ゴミ箱一覧');

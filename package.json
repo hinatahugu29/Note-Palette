@@ -1,7 +1,7 @@
 {
   "name": "notepalette",
   "version": "0.1.0",
-  "description": "付箋の俯瞰性とNotepad++の不揮発性を兼ね備えたメモアプリ",
+  "description": "ノートの俯瞰性とNotepad++の不揮発性を兼ね備えたメモアプリ",
   "main": "dist/main/main.js",
   "scripts": {
     "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json",
