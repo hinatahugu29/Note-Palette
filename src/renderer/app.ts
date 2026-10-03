@@ -530,8 +530,17 @@ function createView(item: Item): PanelView {
   maxBtn.classList.add('max-btn');
   const menuBtn = btn('⋯', 'その他の操作', () => openPanelMenu(item, menuBtn));
   menuBtn.classList.add('menu-btn');
-
   addTab.addEventListener('click', () => addTabTo(item));
+  tabsEl.addEventListener(
+    'wheel',
+    (e) => {
+      if (e.deltaY !== 0) {
+        tabsEl.scrollLeft += e.deltaY;
+        e.preventDefault();
+      }
+    },
+    { passive: false },
+  );
   header.append(titleEl, tabsEl, addTab, spacer, actions);
   root.append(header, bodyEl, resize);
   boardEl.appendChild(root);

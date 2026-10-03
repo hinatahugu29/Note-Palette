@@ -257,8 +257,18 @@ async function main(): Promise<void> {
   dirtyPages.clear();
   updateStatus();
 
-  titleEl.addEventListener('dblclick', beginRenameNote);
-  document.getElementById('add-page')!.addEventListener('click', () => {
+  pagesEl.addEventListener(
+    'wheel',
+    (e) => {
+      if (e.deltaY !== 0) {
+        pagesEl.scrollLeft += e.deltaY;
+        e.preventDefault();
+      }
+    },
+    { passive: false },
+  );
+
+  const addNewPage = (): void => {
     const tab: Tab = { id: uid(), title: `ページ${item.tabs.length + 1}`, scroll: 0 };
     item.tabs.push(tab);
     texts[tab.id] = '';
@@ -266,7 +276,38 @@ async function main(): Promise<void> {
     renderPages();
     activatePage(tab.id);
     markPageDirty(tab.id);
-  });
+  };
+
+  const cyclePage = (step: 1 | -1): void => {
+    if (item.tabs.length < 2) return;
+    const index = item.tabs.findIndex((tab) => tab.id === item.activeTab);
+    const next = item.tabs[(index + step + item.tabs.length) % item.tabs.length];
+    activatePage(next.id);
+  };
+
+  const closeActivePage = (): void => {
+    if (item.tabs.length <= 1) {
+      if (confirm('最後のページです。このノートをボードへ戻しますか？')) {
+        void saveNow().then(() => api.returnDetached(item.id));
+      }
+      return;
+    }
+    const tab = item.tabs.find((t) => t.id === item.activeTab);
+    if (tab) void removePage(tab);
+  };
+
+  const exportActivePage = async (): Promise<void> => {
+    const tab = item.tabs.find((t) => t.id === item.activeTab);
+    if (!tab) return;
+    const savedPath = await api.exportText(tab.title, texts[tab.id] ?? '');
+    if (savedPath) {
+      statusEl.textContent = `${savedPath.split(/[\\/]/).pop()} に書き出しました`;
+      window.setTimeout(updateStatus, 1800);
+    }
+  };
+
+  titleEl.addEventListener('dblclick', beginRenameNote);
+  document.getElementById('add-page')!.addEventListener('click', addNewPage);
   document.getElementById('font-down')!.addEventListener('click', () => changeFont(-1));
   document.getElementById('font-up')!.addEventListener('click', () => changeFont(1));
   document.getElementById('copy')!.addEventListener('click', () => void api.copyText(texts[item.activeTab] ?? ''));
@@ -283,6 +324,28 @@ async function main(): Promise<void> {
   });
   statusEl.addEventListener('click', () => void saveNow());
   api.onDetachedFlushRequest(saveNow);
+
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && !e.altKey && e.key === 'Tab') {
+      e.preventDefault();
+      cyclePage(e.shiftKey ? -1 : 1);
+    } else if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 't') {
+      e.preventDefault();
+      addNewPage();
+    } else if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'w') {
+      e.preventDefault();
+      if (!e.repeat) closeActivePage();
+    } else if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      void exportActivePage();
+    } else if (e.ctrlKey && e.key === '0') {
+      e.preventDefault();
+      item.fontSize = 14;
+      noteEl.style.setProperty('--fs', '14px');
+      fontSizeEl.textContent = '14';
+      markItemDirty();
+    }
+  });
 }
 
 void main();
