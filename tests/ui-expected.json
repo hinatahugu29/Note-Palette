@@ -221,8 +221,8 @@
         "current"
       ],
       "tabs": [
-        "アイデア×*",
-        "ページ2×"
+        "アイデア×",
+        "ページ2×*"
       ],
       "fontSize": "14",
       "pinned": false,
@@ -324,8 +324,8 @@
       "color": "c1",
       "flags": [],
       "tabs": [
-        "アイデア×*",
-        "ページ2×"
+        "アイデア×",
+        "ページ2×*"
       ],
       "fontSize": "14",
       "pinned": false,
@@ -436,8 +436,8 @@
         "tile"
       ],
       "tabs": [
-        "アイデア×*",
-        "ページ2×"
+        "アイデア×",
+        "ページ2×*"
       ],
       "fontSize": "14",
       "pinned": false,
@@ -540,8 +540,8 @@
       "color": "c1",
       "flags": [],
       "tabs": [
-        "アイデア×*",
-        "ページ2×"
+        "アイデア×",
+        "ページ2×*"
       ],
       "fontSize": "14",
       "pinned": false,
@@ -573,6 +573,18 @@
   "afterEscape": 0,
   "afterDelete": 4,
   "trashEntries": 1,
+  "afterRapidClose": [
+    "アイデア",
+    "ページ2"
+  ],
+  "restoreToArchivedNotice": "収納中のノート「ノート 2 のコピー」にページを復元しました",
+  "archivedPages": [
+    "2 ページ"
+  ],
+  "afterUnarchiveTabs": [
+    "ページ2",
+    "アイデア"
+  ],
   "status": "保存済み",
   "errors": []
 }

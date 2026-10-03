@@ -216,8 +216,11 @@ body { display: flex; flex-direction: column; }
   display: flex;
   align-items: stretch;
   min-width: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
+.tabs::-webkit-scrollbar { display: none; }
 .item-title {
   align-self: center;
   flex: none;
@@ -242,6 +245,7 @@ body { display: flex; flex-direction: column; }
 }
 .tab {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 4px;
   max-width: 130px;
@@ -300,6 +304,11 @@ body { display: flex; flex-direction: column; }
 .panel { container-type: inline-size; }
 @container (max-width: 249px) {
   .font-control { display: none; }
+}
+/* 最小幅付近ではページ見出しを優先し、詳細操作は「⋯」へ集約する */
+@container (max-width: 220px) {
+  .actions .pin, .actions .copy, .actions .max-btn { display: none; }
+  .item-title { max-width: 62px; }
 }
 .actions button:hover, .add-tab:hover { background: rgba(255, 255, 255, 0.45); }
 .actions button.pin { opacity: 0.45; }

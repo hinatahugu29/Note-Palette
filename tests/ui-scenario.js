@@ -74,9 +74,16 @@
     await w(100);
 
     // ページ追加・名前変更・複製
-    p2.querySelector('textarea').focus();
-    key('t', { ctrlKey: true });
-    await w(150);
+    const originalWidth = p2.style.width;
+    p2.style.width = '180px';
+    p2.querySelector('.add-tab').click();
+    await waitFor(() => p2.querySelectorAll('.tab').length === 2, '追加したページの見出し');
+    await waitFor(() => {
+      const tabs = p2.querySelector('.tabs').getBoundingClientRect();
+      const active = p2.querySelector('.tab.active').getBoundingClientRect();
+      return active.left >= tabs.left - 1 && active.right <= tabs.right + 1;
+    }, '追加したページが見える位置へのスクロール');
+    p2.style.width = originalWidth;
     const firstPage = p2.querySelector('.tab');
     firstPage.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     await waitFor(() => firstPage.querySelector('input'), 'ページ名の編集開始');
@@ -102,6 +109,14 @@
     await w(100);
     cycled.push(activeTabs());
     steps.tabCycle = cycled;
+
+    // Ctrl+W で空ページを閉じると、見出しも消える
+    const copyPanel = panelByTitle('ノート 2 のコピー');
+    copyPanel.querySelector('.add-tab').click();
+    await waitFor(() => copyPanel.querySelectorAll('.tab').length === 3, 'Ctrl+W 用ページの追加');
+    key('w', { ctrlKey: true });
+    await waitFor(() => copyPanel.querySelectorAll('.tab').length === 2, 'Ctrl+W でページ見出しが消える');
+    await w(100);
 
     // 文字サイズ・ピン・色
     const bigger = [...p3.querySelectorAll('.font-control button')].find((b) => b.textContent === 'A+');
@@ -157,6 +172,42 @@
     await waitFor(() => document.querySelectorAll('#trash-list > *').length > 0, 'ゴミ箱一覧');
     steps.trashEntries = document.querySelectorAll('#trash-list > *').length;
     document.getElementById('trash-close').click();
+    await w(100);
+
+    // Ctrl+W の連打・キーリピートで余分なページを消さない(未保存の本文があり保存待ちが発生する状態)
+    const rapidPanel = panelByTitle('ノート 2 のコピー');
+    rapidPanel.querySelector('.add-tab').click();
+    await waitFor(() => rapidPanel.querySelectorAll('.tab').length === 3, '連打用ページの追加');
+    const ta = rapidPanel.querySelector('textarea.active');
+    ta.focus();
+    type(ta, '連打で消すページ');
+    key('w', { ctrlKey: true });
+    key('w', { ctrlKey: true });
+    key('w', { ctrlKey: true, repeat: true });
+    await waitFor(() => rapidPanel.querySelectorAll('.tab').length === 2, 'Ctrl+W 連打で1ページだけ消える');
+    await w(300);
+    steps.afterRapidClose = [...rapidPanel.querySelectorAll('.tab .title')].map((t) => t.textContent);
+
+    // 収納中のノートへ、ゴミ箱からページを復元できる
+    [...rapidPanel.querySelectorAll('.tab')].find((t) => t.textContent.startsWith('アイデア')).querySelector('.close').click();
+    await waitFor(() => rapidPanel.querySelectorAll('.tab').length === 1, 'ページ「アイデア」の削除');
+    await clickMenu(rapidPanel, 'archive');
+    await waitFor(() => !panelByTitle('ノート 2 のコピー'), 'ノートの収納');
+    document.getElementById('btn-trash').click();
+    await waitFor(() => [...document.querySelectorAll('#trash-list .trash-name')].some((n) => n.textContent === 'アイデア'), 'ゴミ箱のページ');
+    const ideaRow = [...document.querySelectorAll('#trash-list .trash-row')].find((r) => r.querySelector('.trash-name').textContent === 'アイデア');
+    ideaRow.querySelector('button').click();
+    await waitFor(() => document.getElementById('notice-text').textContent.includes('収納中のノート'), '収納中ノートへの復元通知');
+    steps.restoreToArchivedNotice = document.getElementById('notice-text').textContent;
+    document.getElementById('trash-close').click();
+    await w(100);
+    document.getElementById('btn-archive').click();
+    await waitFor(() => document.querySelectorAll('#archive-list .trash-row').length > 0, '収納一覧');
+    steps.archivedPages = [...document.querySelectorAll('#archive-list .trash-meta')].map((m) => m.textContent);
+    document.querySelector('#archive-list .trash-row button').click();
+    await waitFor(() => panelByTitle('ノート 2 のコピー'), '収納からボードへ戻す');
+    steps.afterUnarchiveTabs = [...panelByTitle('ノート 2 のコピー').querySelectorAll('.tab .title')].map((t) => t.textContent);
+    document.getElementById('archive-close').click();
     await w(100);
 
     // 保存状態

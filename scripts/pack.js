@@ -43,6 +43,21 @@ try {
   for (const name of fs.readdirSync(localesDir)) {
     if (!['ja.pak', 'en-US.pak'].includes(name)) fs.rmSync(path.join(localesDir, name));
   }
+  // Electron本体のコピーが中断されてもpackagerが成功終了する場合に、
+  // 起動不能な配布物を完成品として残さない。
+  const requiredRuntimeFiles = [
+    'NotePalette.exe',
+    'icudtl.dat',
+    'resources.pak',
+    'snapshot_blob.bin',
+    'v8_context_snapshot.bin',
+    path.join('resources', 'app.asar'),
+  ];
+  const missing = requiredRuntimeFiles.filter((name) => {
+    const file = path.join(appDir, name);
+    return !fs.existsSync(file) || fs.statSync(file).size === 0;
+  });
+  if (missing.length > 0) throw new Error(`incomplete Electron package; missing: ${missing.join(', ')}`);
   fs.copyFileSync(path.join(root, 'docs', 'NotePalette-manual.html'), path.join(appDir, 'NotePalette-manual.html'));
   fs.writeFileSync(
     path.join(appDir, 'portable.txt'),

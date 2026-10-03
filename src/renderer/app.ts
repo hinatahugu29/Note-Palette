@@ -50,6 +50,8 @@ let board: Board;
 let texts: Record<string, string> = {};
 const views = new Map<string, PanelView>();
 const imgViews = new Map<string, ImageView>();
+/** 削除処理中のページ/ノート/画像ID。保存待ちの間に同じ削除が重ねて走るのを防ぐ */
+const pendingRemovals = new Set<string>();
 let query = '';
 let searchCursor = -1;
 
@@ -87,7 +89,8 @@ function showNotice(message: string): void {
   noticeTimer = window.setTimeout(() => (noticeEl.hidden = true), 1800);
 }
 
-function showUndo(message: string, undo: () => Promise<void>): void {
+/** undo が文字列を返した場合は、それを結果メッセージとして表示する(戻せなかった理由など) */
+function showUndo(message: string, undo: () => Promise<string | void>): void {
   window.clearTimeout(noticeTimer);
   noticeTextEl.textContent = message;
   noticeActionEl.textContent = '元に戻す';
@@ -96,7 +99,7 @@ function showUndo(message: string, undo: () => Promise<void>): void {
   noticeActionEl.onclick = () => {
     noticeActionEl.disabled = true;
     void undo()
-      .then(() => showNotice('元に戻しました'))
+      .then((result) => showNotice(result || '元に戻しました'))
       .catch((err) => {
         console.error(err);
         showNotice('元に戻せませんでした');
@@ -253,20 +256,41 @@ async function restoreTrashEntry(trashName: string): Promise<void> {
     showNotice('復元できませんでした');
     return;
   }
+  let message = 'ゴミ箱から復元しました';
   if (result.kind === 'item') {
     if (board.items.some((item) => item.id === result.item.id)) {
       showNotice('同じノートがあるため復元できません');
       return;
     }
     result.item.z = topZ() + 1;
+    // 削除済みのノートに開いている別窓は無いので、必ずボード側で扱う
+    result.item.mode = 'board';
     board.items.push(result.item);
     Object.assign(texts, result.texts);
-    createView(result.item);
-    layoutAll();
-    setActive(result.item);
-    activateTab(result.item, result.item.activeTab, true);
+    if (result.item.archived) {
+      message = `ノート「${result.item.title}」を収納に復元しました`;
+    } else {
+      createView(result.item);
+      layoutAll();
+      setActive(result.item);
+      activateTab(result.item, result.item.activeTab, true);
+    }
   } else if (result.kind === 'tab') {
     let target = board.items.find((candidate) => candidate.id === result.itemId);
+    if (target?.mode === 'detached') {
+      // 別窓がノートの状態を持っているため、ボード側でページを足しても別窓の保存で上書きされて消える。
+      // 取り出したファイルはゴミ箱へ戻し、ボードへ戻してから復元してもらう。
+      const retrashed = await api.removeTab(target.id, result.tab).catch(() => null);
+      if (retrashed) {
+        showNotice('別窓で開いているノートのページです。ボードに戻してから復元してください');
+        return;
+      }
+      // ゴミ箱へ戻せなかった場合は、本文を失わないよう新しいノートとして復元する
+      const itemId = uid();
+      await api.saveTab(itemId, result.tab.id, result.text);
+      result.itemId = itemId;
+      target = undefined;
+    }
     if (!target) {
       const { w: bw, h: bh } = boardSize();
       const recovered: Item = {
@@ -293,10 +317,17 @@ async function restoreTrashEntry(trashName: string): Promise<void> {
     const item = target;
     if (!item.tabs.some((tab) => tab.id === result.tab.id)) item.tabs.push(result.tab);
     texts[result.tab.id] = result.text;
-    ensureArea(views.get(item.id)!, result.tab);
-    setActive(item);
-    activateTab(item, result.tab.id, true);
-    layoutAll();
+    const view = views.get(item.id);
+    if (view) {
+      ensureArea(view, result.tab);
+      renderTabs(view);
+      setActive(item);
+      activateTab(item, result.tab.id, true);
+      layoutAll();
+    } else {
+      // 収納中のノートは画面に無いので、データだけ戻す(取り出し時に表示される)
+      message = `収納中のノート「${item.title}」にページを復元しました`;
+    }
   } else {
     if (board.images.some((image) => image.id === result.image.id)) {
       showNotice('同じ画像があるため復元できません');
@@ -314,7 +345,7 @@ async function restoreTrashEntry(trashName: string): Promise<void> {
   }
   await api.saveBoard(board);
   runSearch(false);
-  showNotice('ゴミ箱から復元しました');
+  showNotice(message);
 }
 
 // ---------------------------------------------------------------- 保存(自動・デバウンス)
@@ -494,9 +525,11 @@ function createView(item: Item): PanelView {
     const ta = views.get(item.id)?.areas.get(item.activeTab);
     void api.copyText(ta?.value ?? '').then(() => flashDone(copyBtn));
   });
+  copyBtn.classList.add('copy');
   const maxBtn = btn('⤢', '最大化 / 元に戻す (Esc)', () => toggleMax(item));
   maxBtn.classList.add('max-btn');
   const menuBtn = btn('⋯', 'その他の操作', () => openPanelMenu(item, menuBtn));
+  menuBtn.classList.add('menu-btn');
 
   addTab.addEventListener('click', () => addTabTo(item));
   header.append(titleEl, tabsEl, addTab, spacer, actions);
@@ -604,15 +637,26 @@ function activateTab(item: Item, tabId: string, focus: boolean): void {
   }
   // クリックのたびにページDOMを作り直すと、1回目と2回目のクリック対象が
   // 別要素になり dblclick が成立しない。選択状態だけを更新する。
+  let activeTabEl: HTMLElement | undefined;
   for (const tabEl of view.tabsEl.querySelectorAll<HTMLElement>('.tab')) {
     tabEl.classList.toggle('active', tabEl.dataset.tabId === tabId);
+    if (tabEl.dataset.tabId === tabId) activeTabEl = tabEl;
   }
   for (const [id, area] of view.areas) area.classList.toggle('active', id === tabId);
   const ta = view.areas.get(tabId)!;
   const tab = item.tabs.find((t) => t.id === tabId)!;
   requestAnimationFrame(() => {
+    if (activeTabEl) {
+      const tabsRect = view.tabsEl.getBoundingClientRect();
+      const activeRect = activeTabEl.getBoundingClientRect();
+      if (activeRect.left < tabsRect.left) view.tabsEl.scrollLeft -= tabsRect.left - activeRect.left;
+      else if (activeRect.right > tabsRect.right) view.tabsEl.scrollLeft += activeRect.right - tabsRect.right;
+    }
     ta.scrollTop = tab.scroll;
-    if (focus) ta.focus();
+    if (focus) {
+      setActive(item);
+      ta.focus();
+    }
   });
 }
 
@@ -861,9 +905,12 @@ function addTabTo(item: Item): void {
   const tab = newTab(`ページ${item.tabs.length + 1}`);
   texts[tab.id] = '';
   item.tabs.push(tab);
-  ensureArea(views.get(item.id)!, tab);
+  const view = views.get(item.id)!;
+  ensureArea(view, tab);
+  renderTabs(view);
   markBoardDirty();
   markTabDirty(item.id, tab.id);
+  setActive(item);
   activateTab(item, tab.id, true);
 }
 
@@ -971,60 +1018,105 @@ function flashDone(b: HTMLButtonElement, mark = '✓'): void {
 }
 
 async function removeTab(item: Item, tab: Tab): Promise<void> {
-  if (item.tabs.length <= 1) return;
+  if (item.tabs.length <= 1 || pendingRemovals.has(tab.id)) return;
   if (
     (item.pinned || hasText([tab])) &&
     !confirm(`ページ「${tab.title}」を削除しますか?\n(本文は保存フォルダ内の trash に移動されます)`)
   ) return;
-  if (!(await saveNow())) return;
-  const view = views.get(item.id)!;
-  const idx = item.tabs.indexOf(tab);
-  const deletedText = texts[tab.id] ?? '';
-  item.tabs.splice(idx, 1);
-  view.areas.get(tab.id)?.remove();
-  view.areas.delete(tab.id);
-  delete texts[tab.id];
-  dirtyTabs.delete(tab.id);
-  if (item.activeTab === tab.id) item.activeTab = item.tabs[Math.min(idx, item.tabs.length - 1)].id;
-  boardDirty = false;
-  await api.saveBoard(board);
-  const trashName = await api.removeTab(item.id, tab);
-  activateTab(item, item.activeTab, false);
-  showUndo(`ページ「${tab.title}」を削除しました`, async () => {
-    item.tabs.splice(Math.min(idx, item.tabs.length), 0, tab);
-    texts[tab.id] = deletedText;
-    ensureArea(view, tab);
-    if (!trashName || !(await api.restoreTab(trashName, item.id, tab.id))) {
-      await api.saveTab(item.id, tab.id, deletedText);
-    }
+  // 保存待ちの間に Ctrl+W の連打などで同じページの削除がもう一度走ると、
+  // indexOf が -1 になり別のページを消してしまうため、処理中は受け付けない
+  pendingRemovals.add(tab.id);
+  try {
+    if (!(await saveNow())) return;
+    // 待ちの間にノートが削除・収納・別窓化されていないか確かめる
+    const view = views.get(item.id);
+    const idx = item.tabs.indexOf(tab);
+    if (!view || idx < 0 || item.tabs.length <= 1 || !board.items.includes(item)) return;
+    const deletedText = texts[tab.id] ?? '';
+    item.tabs.splice(idx, 1);
+    view.areas.get(tab.id)?.remove();
+    view.areas.delete(tab.id);
+    delete texts[tab.id];
+    dirtyTabs.delete(tab.id);
+    if (item.activeTab === tab.id) item.activeTab = item.tabs[Math.min(idx, item.tabs.length - 1)].id;
+    // activateTab は選択状態の切り替えのみなので、見出しDOMはここで作り直す
+    renderTabs(view);
+    activateTab(item, item.activeTab, false);
+    boardDirty = false;
     await api.saveBoard(board);
+    const trashName = await api.removeTab(item.id, tab);
+    showUndo(`ページ「${tab.title}」を削除しました`, () =>
+      undoRemoveTab(item.id, tab, idx, deletedText, trashName),
+    );
+  } finally {
+    pendingRemovals.delete(tab.id);
+  }
+}
+
+/** ページ削除の取り消し。削除後にノートの状態が変わっていることがあるので、押された時点で確かめ直す */
+async function undoRemoveTab(
+  itemId: string,
+  tab: Tab,
+  idx: number,
+  deletedText: string,
+  trashName: string | null,
+): Promise<string | void> {
+  const item = board.items.find((candidate) => candidate.id === itemId);
+  if (!item) return 'ノートが削除されているため元に戻せませんでした';
+  if (item.mode === 'detached') return '別窓で開いているため元に戻せません。ボードに戻してからゴミ箱で復元してください';
+  if (item.tabs.some((candidate) => candidate.id === tab.id)) return 'このページはすでに復元されています';
+  item.tabs.splice(Math.min(idx, item.tabs.length), 0, tab);
+  texts[tab.id] = deletedText;
+  const view = views.get(item.id);
+  if (view) {
+    ensureArea(view, tab);
+    renderTabs(view);
     activateTab(item, tab.id, true);
-  });
+  }
+  if (!trashName || !(await api.restoreTab(trashName, item.id, tab.id))) {
+    await api.saveTab(item.id, tab.id, deletedText);
+  }
+  await api.saveBoard(board);
+  if (!view) return `収納中のノート「${item.title}」にページを戻しました`;
 }
 
 async function removePanel(item: Item): Promise<void> {
+  if (pendingRemovals.has(item.id)) return;
   if (
     (item.pinned || hasText(item.tabs)) &&
     !confirm('このノートを削除しますか?\n(本文は保存フォルダ内の trash に移動されます)')
   ) return;
+  pendingRemovals.add(item.id);
+  try {
+    await removePanelNow(item);
+  } finally {
+    pendingRemovals.delete(item.id);
+  }
+}
+
+async function removePanelNow(item: Item): Promise<void> {
   if (!(await saveNow())) return;
   const itemIndex = board.items.indexOf(item);
+  const view = views.get(item.id);
+  if (!view || itemIndex < 0) return;
   const deletedTexts = Object.fromEntries(item.tabs.map((tab) => [tab.id, texts[tab.id] ?? '']));
-  const view = views.get(item.id)!;
   view.el.remove();
   views.delete(item.id);
   board.items = board.items.filter((i) => i !== item);
   if (board.view.maximizedId === item.id) board.view.maximizedId = null;
+  if (activeId === item.id) activeId = null;
   for (const t of item.tabs) {
     delete texts[t.id];
     dirtyTabs.delete(t.id);
   }
+  layoutAll();
+  runSearch(false);
   boardDirty = false;
   await api.saveBoard(board);
   const trashName = await api.removeItem(item);
-  layoutAll();
-  runSearch(false);
   showUndo('ノートを削除しました', async () => {
+    // ゴミ箱ダイアログから先に復元されていると二重になる
+    if (board.items.some((candidate) => candidate.id === item.id)) return 'このノートはすでに復元されています';
     board.items.splice(Math.min(itemIndex, board.items.length), 0, item);
     Object.assign(texts, deletedTexts);
     if (!trashName || !(await api.restoreItem(trashName, item.id))) {
@@ -1184,21 +1276,34 @@ async function addImage(blob: Blob, ext: string, cx?: number, cy?: number): Prom
 }
 
 async function removeImage(item: ImageItem): Promise<void> {
-  const view = imgViews.get(item.id);
-  if (!view) return;
+  if (pendingRemovals.has(item.id)) return;
+  pendingRemovals.add(item.id);
+  try {
+    await removeImageNow(item);
+  } finally {
+    pendingRemovals.delete(item.id);
+  }
+}
+
+async function removeImageNow(item: ImageItem): Promise<void> {
+  if (!imgViews.has(item.id)) return;
   if (!(await saveNow())) return;
-  const imageIndex = board.images.indexOf(item);
   const bytes = await api.readImage(item.file);
+  // 待ちの間に状態が変わっていないか確かめる
+  const view = imgViews.get(item.id);
+  const imageIndex = board.images.indexOf(item);
+  if (!view || imageIndex < 0) return;
   view.el.remove();
   URL.revokeObjectURL(view.url);
   imgViews.delete(item.id);
   board.images = board.images.filter((i) => i !== item);
   if (board.view.maximizedId === item.id) board.view.maximizedId = null;
+  layoutAll();
   boardDirty = false;
   await api.saveBoard(board);
   const trashName = await api.removeImage(item);
-  layoutAll();
   showUndo('画像を削除しました', async () => {
+    if (board.images.some((image) => image.id === item.id)) return 'この画像はすでに復元されています';
     let restored = Boolean(trashName && (await api.restoreImage(trashName, item.file)));
     let restoredBytes = bytes;
     if (!restored && bytes) {
@@ -1519,7 +1624,8 @@ function bindGlobalEvents(): void {
       newTabInActive();
     } else if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'w') {
       e.preventDefault();
-      closeActiveTab();
+      // 押しっぱなしのキーリピートで次々にページを閉じないようにする
+      if (!e.repeat) closeActiveTab();
     } else if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 's') {
       e.preventDefault();
       void exportActiveTab();

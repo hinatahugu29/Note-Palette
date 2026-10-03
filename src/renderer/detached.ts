@@ -177,20 +177,31 @@ function renderPages(): void {
   }
 }
 
+const removingPages = new Set<string>();
+
 async function removePage(tab: Tab): Promise<void> {
-  if (item.tabs.length <= 1) return;
+  if (item.tabs.length <= 1 || removingPages.has(tab.id)) return;
   if ((texts[tab.id] ?? '').trim() && !confirm(`ページ「${tab.title}」を削除しますか？`)) return;
-  await saveNow();
-  await api.removeTab(item.id, tab);
-  const index = item.tabs.indexOf(tab);
-  item.tabs.splice(index, 1);
-  delete texts[tab.id];
-  editors.get(tab.id)?.remove();
-  editors.delete(tab.id);
-  if (item.activeTab === tab.id) item.activeTab = item.tabs[Math.min(index, item.tabs.length - 1)].id;
-  renderPages();
-  activatePage(item.activeTab, false);
-  markItemDirty();
+  // 保存待ちの間に × の連打で同じページの削除が重なると、indexOf が -1 になり別ページを消してしまう
+  removingPages.add(tab.id);
+  try {
+    await saveNow();
+    if (!item.tabs.includes(tab) || item.tabs.length <= 1) return;
+    await api.removeTab(item.id, tab);
+    const index = item.tabs.indexOf(tab);
+    if (index < 0) return;
+    item.tabs.splice(index, 1);
+    delete texts[tab.id];
+    dirtyPages.delete(tab.id);
+    editors.get(tab.id)?.remove();
+    editors.delete(tab.id);
+    if (item.activeTab === tab.id) item.activeTab = item.tabs[Math.min(index, item.tabs.length - 1)].id;
+    renderPages();
+    activatePage(item.activeTab, false);
+    markItemDirty();
+  } finally {
+    removingPages.delete(tab.id);
+  }
 }
 
 function beginRenameNote(): void {
