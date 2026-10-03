@@ -67,3 +67,23 @@ test('computeTileRects: 全件を隙間付きで画面内に並べる', async ()
   }
   assert.deepEqual(computeTileRects(['only'], 400, 300).get('only'), { x: 10, y: 10, w: 380, h: 280 });
 });
+
+test('formatMetrics: 文字数・行数および選択文字数を正しくカウントする', async () => {
+  const { formatMetrics } = await load('metrics.js');
+  // 空文字
+  assert.equal(formatMetrics(''), '0文字 1行');
+  // 通常文字列
+  assert.equal(formatMetrics('Hello World'), '11文字 1行');
+  // 複数行
+  assert.equal(formatMetrics('Line 1\nLine 2\nLine 3'), '20文字 3行');
+  // サロゲートペア(絵文字)
+  assert.equal(formatMetrics('🐱🐶'), '2文字 1行');
+  // 選択時(同一行)
+  assert.equal(formatMetrics('Hello World', 0, 5), '選択: 5文字');
+  // 選択時(複数行)
+  assert.equal(formatMetrics('Line 1\nLine 2', 2, 10), '選択: 8文字 (2行)');
+  // 選択範囲が反転(end < start)
+  assert.equal(formatMetrics('Hello World', 5, 0), '選択: 5文字');
+  // 選択なし(start === end)
+  assert.equal(formatMetrics('Hello World', 3, 3), '11文字 1行');
+});

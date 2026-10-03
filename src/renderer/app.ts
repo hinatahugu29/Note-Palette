@@ -1,6 +1,7 @@
 import type { Board, ImageItem, Item, NoteApi, Tab } from '../shared/types.js';
 import { el, must, uid } from './lib/dom.js';
 import { SNAP, clamp, computeTileRects, snapAxis, type Rect } from './lib/geometry.js';
+import { formatMetrics } from './lib/metrics.js';
 import { decodeTextFile, formatSize, isTextFile } from './lib/text-file.js';
 
 declare global {
@@ -33,6 +34,7 @@ interface PanelView {
   titleEl: HTMLElement;
   tabsEl: HTMLElement;
   bodyEl: HTMLElement;
+  countEl: HTMLElement;
   fontSizeEl: HTMLElement;
   pinBtn: HTMLButtonElement;
   areas: Map<string, HTMLTextAreaElement>;
@@ -488,6 +490,12 @@ function bringToFront(item: Box): void {
 
 // ---------------------------------------------------------------- パネル生成・描画
 
+function updatePanelMetrics(view: PanelView): void {
+  const ta = view.areas.get(view.item.activeTab);
+  if (!ta) return;
+  view.countEl.textContent = formatMetrics(ta.value, ta.selectionStart, ta.selectionEnd);
+}
+
 function createView(item: Item): PanelView {
   const root = el('div', `panel c${item.color}`);
   const header = el('div', 'header');
@@ -501,6 +509,9 @@ function createView(item: Item): PanelView {
   const fontControl = el('div', 'font-control');
   const fontSizeEl = el('span', 'font-value', String(item.fontSize));
   const bodyEl = el('div', 'body');
+  const footerEl = el('div', 'panel-footer');
+  const countEl = el('span', 'count-info', '0文字 1行');
+  footerEl.appendChild(countEl);
   const resize = el('div', 'resize');
 
   const btn = (label: string, title: string, fn: () => void): HTMLButtonElement => {
@@ -544,10 +555,10 @@ function createView(item: Item): PanelView {
     { passive: false },
   );
   header.append(titleEl, tabsEl, addTab, spacer, actions);
-  root.append(header, bodyEl, resize);
+  root.append(header, bodyEl, footerEl, resize);
   boardEl.appendChild(root);
 
-  const view: PanelView = { item, el: root, titleEl, tabsEl, bodyEl, fontSizeEl, pinBtn, areas: new Map() };
+  const view: PanelView = { item, el: root, titleEl, tabsEl, bodyEl, countEl, fontSizeEl, pinBtn, areas: new Map() };
   views.set(item.id, view);
 
   root.addEventListener(
@@ -574,6 +585,7 @@ function createView(item: Item): PanelView {
   root.style.setProperty('--fs', String(item.fontSize));
   for (const tab of item.tabs) ensureArea(view, tab);
   renderTabs(view);
+  updatePanelMetrics(view);
   return view;
 }
 
@@ -587,7 +599,11 @@ function ensureArea(view: PanelView, tab: Tab): HTMLTextAreaElement {
     texts[tab.id] = ta!.value;
     markTabDirty(view.item.id, tab.id);
     if (query) runSearch(false);
+    updatePanelMetrics(view);
   });
+  ta.addEventListener('select', () => updatePanelMetrics(view));
+  ta.addEventListener('keyup', () => updatePanelMetrics(view));
+  ta.addEventListener('pointerup', () => updatePanelMetrics(view));
   ta.addEventListener('scroll', () => {
     if (tab.scroll !== ta!.scrollTop) {
       tab.scroll = ta!.scrollTop;
@@ -703,6 +719,7 @@ function activateTab(item: Item, tabId: string, focus: boolean): void {
       setActive(item);
       ta.focus();
     }
+    updatePanelMetrics(view);
   });
 }
 

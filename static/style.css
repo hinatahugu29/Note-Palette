@@ -312,6 +312,9 @@ body { display: flex; flex-direction: column; }
   .actions .pin, .actions .copy, .actions .max-btn { display: none; }
   .item-title { max-width: 62px; }
 }
+@container (max-width: 170px) {
+  .panel-footer { display: none; }
+}
 .actions button:hover, .add-tab:hover { background: rgba(255, 255, 255, 0.45); }
 .actions button.pin { opacity: 0.45; }
 .actions button.pin.active { opacity: 1; background: rgba(255, 255, 255, 0.35); }
@@ -411,6 +414,29 @@ body { display: flex; flex-direction: column; }
   display: none;
 }
 .body textarea.active { display: block; }
+
+.panel-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: none;
+  height: 18px;
+  padding: 0 20px 0 8px;
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.45);
+  user-select: none;
+  pointer-events: none;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.panel.current .panel-footer,
+.panel:hover .panel-footer {
+  color: rgba(0, 0, 0, 0.72);
+}
+.count-info {
+  font-variant-numeric: tabular-nums;
+}
+
 
 .resize {
   position: absolute;

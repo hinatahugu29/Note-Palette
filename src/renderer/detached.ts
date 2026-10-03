@@ -1,5 +1,6 @@
 import type { Item, NoteApi, Tab } from '../shared/types.js';
 import { uid } from './lib/dom.js';
+import { formatMetrics } from './lib/metrics.js';
 
 declare global {
   interface Window {
@@ -14,6 +15,7 @@ const titleEl = document.getElementById('note-title')!;
 const pagesEl = document.getElementById('pages')!;
 const editorsEl = document.getElementById('editors')!;
 const statusEl = document.getElementById('status')!;
+const metricsEl = document.getElementById('metrics')!;
 const fontSizeEl = document.getElementById('font-size')!;
 const topButton = document.getElementById('always-on-top') as HTMLButtonElement;
 
@@ -80,6 +82,13 @@ async function saveNow(): Promise<void> {
   await savePromise;
 }
 
+function updateMetrics(): void {
+  const activeTabId = item?.activeTab;
+  const area = activeTabId ? editors.get(activeTabId) : undefined;
+  if (!area) return;
+  metricsEl.textContent = formatMetrics(area.value, area.selectionStart, area.selectionEnd);
+}
+
 function ensureEditor(tab: Tab): HTMLTextAreaElement {
   const existing = editors.get(tab.id);
   if (existing) return existing;
@@ -89,7 +98,11 @@ function ensureEditor(tab: Tab): HTMLTextAreaElement {
   area.addEventListener('input', () => {
     texts[tab.id] = area.value;
     markPageDirty(tab.id);
+    updateMetrics();
   });
+  area.addEventListener('select', updateMetrics);
+  area.addEventListener('keyup', updateMetrics);
+  area.addEventListener('pointerup', updateMetrics);
   area.addEventListener('scroll', () => {
     tab.scroll = area.scrollTop;
     markItemDirty();
@@ -117,6 +130,7 @@ function activatePage(tabId: string, focus = true): void {
   requestAnimationFrame(() => {
     editor.scrollTop = tab.scroll;
     if (focus) editor.focus();
+    updateMetrics();
   });
 }
 
@@ -291,6 +305,7 @@ async function main(): Promise<void> {
   itemDirty = false;
   dirtyPages.clear();
   updateStatus();
+  updateMetrics();
 
   pagesEl.addEventListener(
     'wheel',
