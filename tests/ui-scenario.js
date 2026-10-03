@@ -210,6 +210,15 @@
     document.getElementById('archive-close').click();
     await w(100);
 
+    // ゴミ箱を空にする
+    document.getElementById('btn-trash').click();
+    await waitFor(() => document.querySelectorAll('#trash-list > *').length > 0, '空にする前のゴミ箱一覧');
+    document.getElementById('trash-empty-all').click();
+    await waitFor(() => document.querySelector('#trash-list .trash-empty')?.textContent === '復元できる項目はありません', 'ゴミ箱が空になる');
+    steps.emptyTrashState = document.querySelector('#trash-list .trash-empty').textContent;
+    document.getElementById('trash-close').click();
+    await w(100);
+
     // 保存状態
     await w(900);
     steps.status = document.getElementById('status').textContent;

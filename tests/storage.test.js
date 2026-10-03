@@ -102,6 +102,20 @@ test('削除したタブと画像を内容を変えずに復元する', async (t
   assert.deepEqual(Buffer.from(await storage.readImage(file)), source);
 });
 
+test('ゴミ箱を空にできる', async (t) => {
+  const { storage } = await tempStorage(t);
+  const board = defaultBoard();
+  const item = board.items[0];
+  await storage.saveBoard(board);
+  await storage.saveTab(item.id, item.tabs[0].id, '本文');
+  const token = await storage.removeItem(item);
+  assert.ok(token);
+  assert.equal((await storage.listTrash()).length, 1);
+  const count = await storage.emptyTrash();
+  assert.equal(count, 1);
+  assert.equal((await storage.listTrash()).length, 0);
+});
+
 test('本文を変更した後でもバックアップ時点へ戻せる', async (t) => {
   const { storage } = await tempStorage(t);
   const board = defaultBoard();

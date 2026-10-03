@@ -431,6 +431,21 @@ export class Storage {
     }
   }
 
+  async emptyTrash(): Promise<number> {
+    try {
+      const trashDir = path.join(this.dir, 'trash');
+      const names = await fs.readdir(trashDir);
+      let count = 0;
+      for (const name of names) {
+        await fs.rm(path.join(trashDir, name), { recursive: true, force: true }).catch(() => {});
+        count++;
+      }
+      return count;
+    } catch {
+      return 0;
+    }
+  }
+
   async restoreTrash(trashName: string): Promise<TrashRestoreResult | null> {
     const meta = await this.readTrashMeta(trashName);
     if (!meta) return null;

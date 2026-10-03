@@ -15,6 +15,7 @@ const api: NoteApi = {
   removeImage: (image) => ipcRenderer.invoke('remove-image', image),
   restoreImage: (trashName, file) => ipcRenderer.invoke('restore-image', trashName, file),
   listTrash: () => ipcRenderer.invoke('list-trash'),
+  emptyTrash: () => ipcRenderer.invoke('empty-trash'),
   restoreTrash: (trashName) => ipcRenderer.invoke('restore-trash', trashName),
   listBackups: () => ipcRenderer.invoke('list-backups'),
   restoreBackup: (name) => ipcRenderer.invoke('restore-backup', name),

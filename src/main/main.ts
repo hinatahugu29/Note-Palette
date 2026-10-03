@@ -256,6 +256,7 @@ ipcMain.handle('read-image', (_e, file: string) => storage.readImage(file));
 ipcMain.handle('remove-image', (_e, image: ImageItem) => storage.removeImage(image));
 ipcMain.handle('restore-image', (_e, trashName: string, file: string) => storage.restoreImage(trashName, file));
 ipcMain.handle('list-trash', () => storage.listTrash());
+ipcMain.handle('empty-trash', () => storage.emptyTrash());
 ipcMain.handle('restore-trash', (_e, trashName: string) => storage.restoreTrash(trashName));
 ipcMain.handle('list-backups', () => storage.listBackups());
 ipcMain.handle('restore-backup', (_e, name: string) => storage.restoreBackup(name));

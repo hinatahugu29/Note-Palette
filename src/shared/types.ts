@@ -116,6 +116,7 @@ export interface NoteApi {
   removeImage(image: ImageItem): Promise<string | null>;
   restoreImage(trashName: string, file: string): Promise<boolean>;
   listTrash(): Promise<TrashEntry[]>;
+  emptyTrash(): Promise<number>;
   restoreTrash(trashName: string): Promise<TrashRestoreResult | null>;
   listBackups(): Promise<BackupInfo[]>;
   restoreBackup(name: string): Promise<boolean>;

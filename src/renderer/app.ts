@@ -66,6 +66,7 @@ const noticeActionEl = must<HTMLButtonElement>('notice-action');
 const panelMenuEl = must<HTMLElement>('panel-menu');
 const trashDialogEl = must<HTMLElement>('trash-dialog');
 const trashListEl = must<HTMLElement>('trash-list');
+const trashEmptyAllBtn = must<HTMLButtonElement>('trash-empty-all');
 const archiveDialogEl = must<HTMLElement>('archive-dialog');
 const archiveListEl = must<HTMLElement>('archive-list');
 const dataMenuEl = must<HTMLElement>('data-menu');
@@ -127,6 +128,7 @@ async function openTrash(): Promise<void> {
   trashListEl.textContent = '';
   trashListEl.appendChild(el('div', 'trash-empty', '読み込み中…'));
   const entries = await api.listTrash();
+  trashEmptyAllBtn.disabled = entries.length === 0;
   trashListEl.textContent = '';
   if (entries.length === 0) {
     trashListEl.appendChild(el('div', 'trash-empty', '復元できる項目はありません'));
@@ -1570,6 +1572,13 @@ function bindGlobalEvents(): void {
     if (e.target === backupDialogEl) backupDialogEl.hidden = true;
   });
   must('btn-trash').addEventListener('click', () => void openTrash());
+  trashEmptyAllBtn.addEventListener('click', async () => {
+    if (!confirm('ゴミ箱内のすべての項目を完全に削除しますか？\n（この操作は取り消せません）')) return;
+    trashEmptyAllBtn.disabled = true;
+    const count = await api.emptyTrash();
+    showNotice(`ゴミ箱から ${count} 件の項目を完全に削除しました`);
+    void openTrash();
+  });
   must('trash-close').addEventListener('click', () => (trashDialogEl.hidden = true));
   trashDialogEl.addEventListener('click', (e) => {
     if (e.target === trashDialogEl) trashDialogEl.hidden = true;

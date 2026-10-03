@@ -363,6 +363,17 @@ body { display: flex; flex-direction: column; }
   width: 28px; height: 28px; border: none; border-radius: 4px;
   background: transparent; color: var(--fg); cursor: pointer;
 }
+.dialog > header button.text-btn {
+  width: auto;
+  height: 26px;
+  padding: 0 8px;
+  font-size: 12px;
+  margin-right: 8px;
+  border: 1px solid #5a3d42;
+  color: #ff9a9a;
+}
+.dialog > header button.text-btn:hover { background: rgba(255, 100, 100, 0.15); }
+.dialog > header button.text-btn:disabled { opacity: 0.4; cursor: default; }
 .dialog > p { margin: 8px 0 12px; color: var(--muted); }
 #trash-list, #archive-list, #backup-list { max-height: 480px; overflow-y: auto; }
 .trash-row {
