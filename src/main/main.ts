@@ -38,6 +38,14 @@ const storage = new Storage(dataDir);
 const windowStateFile = path.join(dataDir, 'window.json');
 const sessionFile = path.join(dataDir, '.session-active');
 let uncleanShutdown = false;
+let mainWindow: BrowserWindow | null = null;
+let appQuitting = false;
+const detachedWindows = new Map<string, BrowserWindow>();
+
+function sendToMain(channel: string, ...args: unknown[]): void {
+  if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
+  mainWindow.webContents.send(channel, ...args);
+}
 
 function markSessionStarted(): void {
   fs.mkdirSync(dataDir, { recursive: true });
@@ -91,6 +99,82 @@ function writeWindowState(win: BrowserWindow): void {
   }
 }
 
+function requestRendererFlush(win: BrowserWindow, requestChannel: string, doneChannel: string): Promise<void> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      ipcMain.removeListener(doneChannel, listener);
+      resolve();
+    };
+    const listener = (event: Electron.IpcMainEvent) => {
+      if (event.sender === win.webContents) finish();
+    };
+    ipcMain.on(doneChannel, listener);
+    setTimeout(finish, 2000);
+    win.webContents.send(requestChannel);
+  });
+}
+
+async function createDetachedWindow(itemId: string): Promise<boolean> {
+  const existing = detachedWindows.get(itemId);
+  if (existing && !existing.isDestroyed()) {
+    if (existing.isMinimized()) existing.restore();
+    existing.focus();
+    return true;
+  }
+  const loaded = await storage.loadDetached(itemId);
+  if (!loaded) return false;
+  const saved = loaded.item.detached;
+  const win = new BrowserWindow({
+    x: saved?.x,
+    y: saved?.y,
+    width: saved?.width ?? Math.max(320, loaded.item.w),
+    height: saved?.height ?? Math.max(220, loaded.item.h),
+    minWidth: 260,
+    minHeight: 180,
+    title: loaded.item.title,
+    icon: path.join(__dirname, '..', '..', 'アイコン.png'),
+    backgroundColor: '#fff9c4',
+    autoHideMenuBar: true,
+    alwaysOnTop: saved?.alwaysOnTop ?? false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+    },
+  });
+  detachedWindows.set(itemId, win);
+  win.setMenu(null);
+  await win.loadFile(path.join(__dirname, '..', '..', 'static', 'detached.html'), { query: { itemId } });
+
+  let allowClose = false;
+  let closing = false;
+  win.on('close', (event) => {
+    if (allowClose || closing) return;
+    event.preventDefault();
+    closing = true;
+    void (async () => {
+      try {
+        await requestRendererFlush(win, 'detached-flush-request', 'detached-flush-done');
+        const bounds = win.getNormalBounds();
+        const detached = { ...bounds, alwaysOnTop: win.isAlwaysOnTop() };
+        const mode: Item['mode'] = appQuitting ? 'detached' : 'board';
+        const item = await storage.setDetachedState(itemId, mode, detached);
+        if (!appQuitting && item) sendToMain('detached-item-updated', item);
+        if (!appQuitting) sendToMain('detached-returned', itemId);
+      } finally {
+        detachedWindows.delete(itemId);
+        allowClose = true;
+        win.close();
+      }
+    })();
+  });
+  return true;
+}
+
 function createWindow(): void {
   const state = readWindowState();
   const win = new BrowserWindow({
@@ -112,6 +196,10 @@ function createWindow(): void {
       backgroundThrottling: !process.env.NOTEPALETTE_SCREENSHOT,
     },
   });
+  mainWindow = win;
+  win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null;
+  });
   if (state.maximized) win.maximize();
   win.setMenu(null);
   win.loadFile(path.join(__dirname, '..', '..', 'static', 'index.html'));
@@ -125,6 +213,8 @@ function createWindow(): void {
     const finish = () => {
       if (flushed) return;
       flushed = true;
+      appQuitting = true;
+      for (const detached of detachedWindows.values()) detached.close();
       markSessionClosed();
       win.close();
     };
@@ -154,7 +244,7 @@ function createWindow(): void {
 }
 
 ipcMain.handle('load', async () => ({ ...(await storage.load()), uncleanShutdown, dataMode: dataLocation.mode }));
-ipcMain.handle('save-board', (_e, board) => storage.saveBoard(board));
+ipcMain.handle('save-board', (_e, board) => storage.saveBoardFromBoardWindow(board));
 ipcMain.handle('save-tab', (_e, itemId: string, tabId: string, text: string) => storage.saveTab(itemId, tabId, text));
 ipcMain.handle('remove-item', (_e, item: Item) => storage.removeItem(item));
 ipcMain.handle('remove-tab', (_e, itemId: string, tab: Tab) => storage.removeTab(itemId, tab));
@@ -235,8 +325,33 @@ ipcMain.handle('copy-image', async (_e, file: string) => {
   await clipboard.write([new ClipboardItem({ 'image/png': png })]);
   return true;
 });
+ipcMain.handle('open-detached', (_e, itemId: string) => createDetachedWindow(itemId));
+ipcMain.handle('load-detached', (_e, itemId: string) => storage.loadDetached(itemId));
+ipcMain.handle('save-detached-item', async (_e, item: Item) => {
+  await storage.saveDetachedItem(item);
+  const win = detachedWindows.get(item.id);
+  if (win && !win.isDestroyed()) win.setTitle(item.title);
+  sendToMain('detached-item-updated', item);
+});
+ipcMain.handle('return-detached', (_e, itemId: string) => {
+  detachedWindows.get(itemId)?.close();
+});
+ipcMain.handle('set-detached-always-on-top', async (_e, itemId: string, value: boolean) => {
+  const win = detachedWindows.get(itemId);
+  if (!win || win.isDestroyed()) return;
+  win.setAlwaysOnTop(value);
+  const loaded = await storage.loadDetached(itemId);
+  if (!loaded) return;
+  loaded.item.detached = {
+    ...(loaded.item.detached ?? { width: win.getBounds().width, height: win.getBounds().height }),
+    alwaysOnTop: value,
+  };
+  await storage.saveDetachedItem(loaded.item);
+  sendToMain('detached-item-updated', loaded.item);
+});
 
-if (!app.requestSingleInstanceLock()) {
+// 自動UIテストは利用中の配布版と別データで起動するため、多重起動制限の対象外にする。
+if (!process.env.NOTEPALETTE_SCREENSHOT && !app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', () => {

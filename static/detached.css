@@ -1,0 +1,32 @@
+:root { color-scheme: light; font-family: "Yu Gothic UI", "Meiryo", sans-serif; }
+* { box-sizing: border-box; }
+html, body, #note { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body { background: #fff4ad; }
+#note { display: flex; flex-direction: column; background: var(--paper); color: #252525; border-top: 4px solid var(--edge); }
+.c0 { --paper: #fff4ad; --edge: #d7bd48; }
+.c1 { --paper: #ffd5dc; --edge: #d88191; }
+.c2 { --paper: #d8f2cc; --edge: #83bb70; }
+.c3 { --paper: #d7ecff; --edge: #79a9d5; }
+.c4 { --paper: #eadcff; --edge: #a98bd4; }
+.c5 { --paper: #ffe0bd; --edge: #d79d58; }
+.c6 { --paper: #e5e5e5; --edge: #999; }
+header { min-height: 38px; display: flex; align-items: center; gap: 8px; padding: 4px 6px 3px 10px; border-bottom: 1px solid #0002; }
+#note-title { min-width: 40px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+#note-title input, .page input { width: 100%; min-width: 50px; font: inherit; border: 1px solid #537ca8; background: #fff; }
+.actions { display: flex; align-items: center; gap: 2px; }
+button { border: 0; border-radius: 4px; background: #fff8; color: inherit; min-width: 28px; height: 28px; cursor: pointer; }
+button:hover { background: #fff; }
+button.active { background: #4e78a5; color: #fff; }
+#font-size { min-width: 20px; text-align: center; font-size: 11px; }
+#page-bar { display: flex; align-items: end; min-height: 34px; padding: 3px 5px 0; border-bottom: 1px solid #0002; }
+#pages { display: flex; min-width: 0; overflow-x: auto; }
+.page { display: flex; align-items: center; gap: 5px; min-width: 58px; max-width: 150px; height: 30px; padding: 4px 8px; border-radius: 6px 6px 0 0; cursor: pointer; white-space: nowrap; }
+.page .name { overflow: hidden; text-overflow: ellipsis; }
+.page.active { background: #fff9; font-weight: 700; }
+.page .close { opacity: .55; }
+.page .close:hover { opacity: 1; }
+#add-page { margin-left: 3px; }
+#editors { position: relative; flex: 1; min-height: 0; }
+textarea { position: absolute; inset: 0; display: none; width: 100%; height: 100%; resize: none; border: 0; outline: 0; padding: 12px; background: transparent; color: inherit; font: var(--fs, 14px)/1.55 Consolas, "Yu Gothic UI", monospace; }
+textarea.active { display: block; }
+footer { display: flex; justify-content: space-between; padding: 2px 7px; border-top: 1px solid #0002; color: #555; font-size: 10px; }

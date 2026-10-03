@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import AdmZip = require('adm-zip');
-import type { BackupInfo, Board, ImageItem, Item, LoadResult, Tab, TrashEntry, TrashRestoreResult } from '../shared/types';
+import type { BackupInfo, Board, DetachedLoadResult, ImageItem, Item, LoadResult, Tab, TrashEntry, TrashRestoreResult } from '../shared/types';
 
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const BACKUP_KEEP = 30;
@@ -241,6 +241,59 @@ export class Storage {
 
   saveBoard(board: Board): Promise<void> {
     return this.writeAtomic(this.boardFile, JSON.stringify(board, null, 2));
+  }
+
+  /** ボード画面の保存時、独立ウィンドウ側が更新したノートを古い状態で上書きしない。 */
+  saveBoardFromBoardWindow(board: Board): Promise<void> {
+    return this.enqueue(this.boardFile, async () => {
+      const current = await this.readBoardFile(this.boardFile);
+      if (current) {
+        const detached = new Map(current.items.filter((item) => item.mode === 'detached').map((item) => [item.id, item]));
+        board.items = board.items.map((item) => detached.get(item.id) ?? item);
+      }
+      const tmp = `${this.boardFile}.tmp`;
+      await fs.writeFile(tmp, JSON.stringify(board, null, 2), 'utf8');
+      await fs.rename(tmp, this.boardFile);
+    });
+  }
+
+  async loadDetached(itemId: string): Promise<DetachedLoadResult | null> {
+    assertId(itemId);
+    const board = await this.readBoardFile(this.boardFile);
+    const item = board?.items.find((candidate) => candidate.id === itemId);
+    if (!item) return null;
+    const texts: Record<string, string> = {};
+    for (const tab of item.tabs) {
+      texts[tab.id] = await fs.readFile(this.tabFile(item.id, tab.id), 'utf8').catch(() => '');
+    }
+    return { item, texts };
+  }
+
+  saveDetachedItem(item: Item): Promise<void> {
+    assertId(item.id);
+    return this.enqueue(this.boardFile, async () => {
+      const board = await this.readBoardFile(this.boardFile);
+      if (!board) throw new Error('board unavailable');
+      const index = board.items.findIndex((candidate) => candidate.id === item.id);
+      if (index < 0) throw new Error('detached item unavailable');
+      board.items[index] = item;
+      const tmp = `${this.boardFile}.tmp`;
+      await fs.writeFile(tmp, JSON.stringify(board, null, 2), 'utf8');
+      await fs.rename(tmp, this.boardFile);
+    });
+  }
+
+  async setDetachedState(
+    itemId: string,
+    mode: Item['mode'],
+    detached?: Item['detached'],
+  ): Promise<Item | null> {
+    const loaded = await this.loadDetached(itemId);
+    if (!loaded) return null;
+    loaded.item.mode = mode;
+    if (detached) loaded.item.detached = detached;
+    await this.saveDetachedItem(loaded.item);
+    return loaded.item;
   }
 
   saveTab(itemId: string, tabId: string, text: string): Promise<void> {

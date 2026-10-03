@@ -26,6 +26,26 @@ const api: NoteApi = {
   copyText: (text) => ipcRenderer.invoke('copy-text', text),
   copyImage: (file) => ipcRenderer.invoke('copy-image', file),
   exportText: (title, text) => ipcRenderer.invoke('export-text', title, text),
+  openDetached: (itemId) => ipcRenderer.invoke('open-detached', itemId),
+  loadDetached: (itemId) => ipcRenderer.invoke('load-detached', itemId),
+  saveDetachedItem: (item) => ipcRenderer.invoke('save-detached-item', item),
+  returnDetached: (itemId) => ipcRenderer.invoke('return-detached', itemId),
+  setDetachedAlwaysOnTop: (itemId, value) => ipcRenderer.invoke('set-detached-always-on-top', itemId, value),
+  onDetachedItemUpdated: (cb) => {
+    ipcRenderer.on('detached-item-updated', (_event, item) => cb(item));
+  },
+  onDetachedReturned: (cb) => {
+    ipcRenderer.on('detached-returned', (_event, itemId) => cb(itemId));
+  },
+  onDetachedFlushRequest: (cb) => {
+    ipcRenderer.on('detached-flush-request', async () => {
+      try {
+        await cb();
+      } finally {
+        ipcRenderer.send('detached-flush-done');
+      }
+    });
+  },
   onFlushRequest: (cb) => {
     ipcRenderer.on('flush-request', async () => {
       try {

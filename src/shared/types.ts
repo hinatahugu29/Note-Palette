@@ -32,6 +32,14 @@ export interface Item {
   activeTab: string;
   /** v3: 独立ウィンドウ化に備えた状態 */
   mode: 'board' | 'detached';
+  /** 独立ウィンドウの位置・サイズと最前面表示 */
+  detached?: {
+    x?: number;
+    y?: number;
+    width: number;
+    height: number;
+    alwaysOnTop: boolean;
+  };
 }
 
 /** ボードに直接貼る画像。実体は images/ フォルダのファイル */
@@ -66,6 +74,11 @@ export interface LoadResult {
   /** 前回セッションが終了処理を通らず終わった場合 true */
   uncleanShutdown?: boolean;
   dataMode?: 'portable' | 'documents' | 'custom';
+}
+
+export interface DetachedLoadResult {
+  item: Item;
+  texts: Record<string, string>;
 }
 
 export interface TrashEntry {
@@ -117,6 +130,14 @@ export interface NoteApi {
   copyImage(file: string): Promise<boolean>;
   /** アクティブなページを任意の場所へUTF-8テキストとして書き出す。キャンセル時は null */
   exportText(title: string, text: string): Promise<string | null>;
+  openDetached(itemId: string): Promise<boolean>;
+  loadDetached(itemId: string): Promise<DetachedLoadResult | null>;
+  saveDetachedItem(item: Item): Promise<void>;
+  returnDetached(itemId: string): Promise<void>;
+  setDetachedAlwaysOnTop(itemId: string, value: boolean): Promise<void>;
+  onDetachedItemUpdated(cb: (item: Item) => void): void;
+  onDetachedReturned(cb: (itemId: string) => void): void;
+  onDetachedFlushRequest(cb: () => Promise<void>): void;
   /** 終了前に未保存分を書き出す要求を受ける。cb 完了後に自動で完了通知する */
   onFlushRequest(cb: () => Promise<void>): void;
 }

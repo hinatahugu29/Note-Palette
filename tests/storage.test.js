@@ -37,6 +37,32 @@ test('配置と全本文を同じスナップショットへ保存する', async
   assert.deepEqual(JSON.parse(await fs.readFile(path.join(snapshot, 'board.json'), 'utf8')), board);
 });
 
+test('独立ウィンドウのノートをボード側の保存で上書きしない', async (t) => {
+  const { storage } = await tempStorage(t);
+  const board = defaultBoard();
+  const item = board.items[0];
+  item.mode = 'detached';
+  await storage.saveBoard(board);
+  await storage.saveTab(item.id, item.tabs[0].id, '独立ウィンドウ本文');
+
+  const detached = await storage.loadDetached(item.id);
+  detached.item.title = '外で編集したノート';
+  await storage.saveDetachedItem(detached.item);
+
+  const staleBoard = structuredClone(board);
+  staleBoard.items[0].title = '古いタイトル';
+  await storage.saveBoardFromBoardWindow(staleBoard);
+
+  const after = await storage.loadDetached(item.id);
+  assert.equal(after.item.title, '外で編集したノート');
+  assert.equal(after.texts[item.tabs[0].id], '独立ウィンドウ本文');
+  const returned = await storage.setDetachedState(item.id, 'board', {
+    x: 10, y: 20, width: 320, height: 220, alwaysOnTop: true,
+  });
+  assert.equal(returned.mode, 'board');
+  assert.equal(returned.detached.alwaysOnTop, true);
+});
+
 test('削除した付箋をタイトルと本文ごとゴミ箱から復元する', async (t) => {
   const { storage } = await tempStorage(t);
   const board = defaultBoard();

@@ -387,7 +387,7 @@ async function saveNow(): Promise<boolean> {
 // ---------------------------------------------------------------- 配置計算
 
 function allBoxes(): Box[] {
-  return [...board.items.filter((item) => !item.archived), ...board.images];
+  return [...board.items.filter((item) => !item.archived && item.mode === 'board'), ...board.images];
 }
 
 function elOf(id: string): HTMLElement | undefined {
@@ -882,8 +882,8 @@ function setActive(item: Item): void {
 /** ショートカットの対象。最後に触ったノート、無ければ最前面のノート */
 function activeItem(): Item | undefined {
   return (
-    board.items.find((i) => !i.archived && i.id === activeId) ??
-    [...board.items].filter((item) => !item.archived).sort((a, b) => b.z - a.z)[0]
+    board.items.find((i) => !i.archived && i.mode === 'board' && i.id === activeId) ??
+    [...board.items].filter((item) => !item.archived && item.mode === 'board').sort((a, b) => b.z - a.z)[0]
   );
 }
 
@@ -1052,6 +1052,28 @@ function archiveItem(item: Item): void {
   showNotice('ノートを収納しました');
 }
 
+async function detachItem(item: Item): Promise<void> {
+  if (!(await saveNow())) return;
+  const view = views.get(item.id);
+  if (!view) return;
+  item.mode = 'detached';
+  item.detached ??= { width: Math.max(320, item.w), height: Math.max(220, item.h), alwaysOnTop: false };
+  view.el.remove();
+  views.delete(item.id);
+  if (activeId === item.id) activeId = null;
+  if (board.view.maximizedId === item.id) board.view.maximizedId = null;
+  await api.saveBoard(board);
+  layoutAll();
+  runSearch(false);
+  if (!(await api.openDetached(item.id))) {
+    item.mode = 'board';
+    createView(item);
+    layoutAll();
+    await api.saveBoard(board);
+    showNotice('ノートをウィンドウに出せませんでした');
+  }
+}
+
 function changeFont(item: Item, delta: number): void {
   item.fontSize = clamp(item.fontSize + delta, 8, 72);
   const view = views.get(item.id)!;
@@ -1062,7 +1084,7 @@ function changeFont(item: Item, delta: number): void {
 
 function unifyFontSize(size: number): void {
   if (board.items.length === 0) return;
-  for (const item of board.items.filter((candidate) => !candidate.archived)) {
+  for (const item of board.items.filter((candidate) => !candidate.archived && candidate.mode === 'board')) {
     item.fontSize = size;
     const view = views.get(item.id);
     view?.el.style.setProperty('--fs', String(size));
@@ -1437,6 +1459,7 @@ function bindGlobalEvents(): void {
     if (action === 'color') cycleColor(item);
     else if (action === 'rename-note') beginItemRename(item);
     else if (action === 'rename-page') beginActivePageRename(item);
+    else if (action === 'detach') void detachItem(item);
     else if (action === 'export') void exportActiveTab(item);
     else if (action === 'source') {
       const tab = item.tabs.find((candidate) => candidate.id === item.activeTab);
@@ -1573,6 +1596,25 @@ function bindGlobalEvents(): void {
   api.onFlushRequest(async () => {
     await saveNow();
   });
+  api.onDetachedItemUpdated((updated) => {
+    const item = board.items.find((candidate) => candidate.id === updated.id);
+    if (item) Object.assign(item, updated);
+  });
+  api.onDetachedReturned((itemId) => {
+    void (async () => {
+      const loaded = await api.loadDetached(itemId);
+      if (!loaded) return;
+      const item = board.items.find((candidate) => candidate.id === itemId);
+      if (!item || views.has(itemId)) return;
+      Object.assign(item, loaded.item, { mode: 'board' });
+      Object.assign(texts, loaded.texts);
+      createView(item);
+      layoutAll();
+      setActive(item);
+      activateTab(item, item.activeTab, true);
+      runSearch(false);
+    })();
+  });
 }
 
 async function main(): Promise<void> {
@@ -1580,13 +1622,16 @@ async function main(): Promise<void> {
   board = res.board;
   texts = res.texts;
   bindGlobalEvents();
-  for (const item of [...board.items].filter((candidate) => !candidate.archived).sort((a, b) => a.z - b.z)) createView(item);
+  for (const item of [...board.items].filter((candidate) => !candidate.archived && candidate.mode === 'board').sort((a, b) => a.z - b.z)) createView(item);
   for (const img of [...board.images].sort((a, b) => a.z - b.z)) {
     const bytes = await api.readImage(img.file);
     if (bytes) createImageView(img, bytes);
   }
   layoutAll();
-  for (const item of board.items.filter((candidate) => !candidate.archived)) activateTab(item, item.activeTab, false);
+  for (const item of board.items.filter((candidate) => !candidate.archived && candidate.mode === 'board')) activateTab(item, item.activeTab, false);
+  for (const item of board.items.filter((candidate) => !candidate.archived && candidate.mode === 'detached')) {
+    void api.openDetached(item.id);
+  }
   updateStatus();
   statusEl.textContent = '保存済み';
   if (res.uncleanShutdown) {
