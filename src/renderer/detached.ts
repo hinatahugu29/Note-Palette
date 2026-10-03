@@ -146,13 +146,15 @@ function beginRenamePage(tab: Tab, pageEl: HTMLElement): void {
   });
 }
 
+let draggingPageId: string | null = null;
+
 function renderPages(): void {
   pagesEl.textContent = '';
   for (const tab of item.tabs) {
     const page = document.createElement('div');
     page.className = 'page';
     page.dataset.tabId = tab.id;
-    page.title = 'ダブルクリックでページ名を変更';
+    page.title = 'ダブルクリックでページ名を変更、ドラッグで並び替え';
     page.classList.toggle('active', tab.id === item.activeTab);
     const name = document.createElement('span');
     name.className = 'name';
@@ -168,6 +170,39 @@ function renderPages(): void {
       });
       page.appendChild(close);
     }
+    page.draggable = true;
+    page.addEventListener('dragstart', (e) => {
+      draggingPageId = tab.id;
+      e.dataTransfer?.setData('text/plain', tab.id);
+      page.classList.add('dragging');
+    });
+    page.addEventListener('dragend', () => {
+      draggingPageId = null;
+      page.classList.remove('dragging');
+      pagesEl.querySelectorAll('.page.drag-over').forEach((el) => el.classList.remove('drag-over'));
+    });
+    page.addEventListener('dragover', (e) => {
+      if (draggingPageId && draggingPageId !== tab.id) {
+        e.preventDefault();
+        page.classList.add('drag-over');
+      }
+    });
+    page.addEventListener('dragleave', () => {
+      page.classList.remove('drag-over');
+    });
+    page.addEventListener('drop', (e) => {
+      e.preventDefault();
+      page.classList.remove('drag-over');
+      if (!draggingPageId || draggingPageId === tab.id) return;
+      const fromIdx = item.tabs.findIndex((candidate) => candidate.id === draggingPageId);
+      const toIdx = item.tabs.indexOf(tab);
+      if (fromIdx >= 0 && toIdx >= 0) {
+        const [moved] = item.tabs.splice(fromIdx, 1);
+        item.tabs.splice(toIdx, 0, moved);
+        renderPages();
+        markItemDirty();
+      }
+    });
     page.addEventListener('click', () => activatePage(tab.id));
     page.addEventListener('dblclick', (event) => {
       event.stopPropagation();

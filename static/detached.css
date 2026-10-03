@@ -23,6 +23,8 @@ button.active { background: #4e78a5; color: #fff; }
 .page { display: flex; align-items: center; gap: 5px; min-width: 58px; max-width: 150px; height: 30px; padding: 4px 8px; border-radius: 6px 6px 0 0; cursor: pointer; white-space: nowrap; }
 .page .name { overflow: hidden; text-overflow: ellipsis; }
 .page.active { background: #fff9; font-weight: 700; }
+.page.dragging { opacity: .35; }
+.page.drag-over { background: #fffc; outline: 2px dashed #4e78a5; }
 .page .close { opacity: .55; }
 .page .close:hover { opacity: 1; }
 #add-page { margin-left: 3px; }

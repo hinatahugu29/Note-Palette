@@ -609,13 +609,15 @@ function tabMatches(tab: Tab): boolean {
   return tab.title.toLowerCase().includes(query) || (texts[tab.id] ?? '').toLowerCase().includes(query);
 }
 
+let draggingTabInfo: { itemId: string; tabId: string } | null = null;
+
 function renderTabs(view: PanelView): void {
   const { item, tabsEl } = view;
   tabsEl.textContent = '';
   for (const tab of item.tabs) {
     const t = el('div', 'tab');
     t.dataset.tabId = tab.id;
-    t.title = 'ページ名（ダブルクリックで変更）';
+    t.title = 'ページ名（ダブルクリックで変更、ドラッグで並び替え）';
     t.classList.toggle('active', tab.id === item.activeTab);
     t.classList.toggle('hit', tabMatches(tab));
     t.appendChild(el('span', 'title', tab.title));
@@ -628,6 +630,39 @@ function renderTabs(view: PanelView): void {
       });
       t.appendChild(close);
     }
+    t.draggable = true;
+    t.addEventListener('dragstart', (e) => {
+      draggingTabInfo = { itemId: item.id, tabId: tab.id };
+      e.dataTransfer?.setData('text/plain', tab.id);
+      t.classList.add('dragging');
+    });
+    t.addEventListener('dragend', () => {
+      draggingTabInfo = null;
+      t.classList.remove('dragging');
+      tabsEl.querySelectorAll('.tab.drag-over').forEach((el) => el.classList.remove('drag-over'));
+    });
+    t.addEventListener('dragover', (e) => {
+      if (draggingTabInfo?.itemId === item.id && draggingTabInfo.tabId !== tab.id) {
+        e.preventDefault();
+        t.classList.add('drag-over');
+      }
+    });
+    t.addEventListener('dragleave', () => {
+      t.classList.remove('drag-over');
+    });
+    t.addEventListener('drop', (e) => {
+      e.preventDefault();
+      t.classList.remove('drag-over');
+      if (!draggingTabInfo || draggingTabInfo.itemId !== item.id || draggingTabInfo.tabId === tab.id) return;
+      const fromIdx = item.tabs.findIndex((candidate) => candidate.id === draggingTabInfo!.tabId);
+      const toIdx = item.tabs.indexOf(tab);
+      if (fromIdx >= 0 && toIdx >= 0) {
+        const [moved] = item.tabs.splice(fromIdx, 1);
+        item.tabs.splice(toIdx, 0, moved);
+        renderTabs(view);
+        markBoardDirty();
+      }
+    });
     t.addEventListener('click', () => activateTab(item, tab.id, true));
     t.addEventListener('dblclick', (e) => {
       e.stopPropagation();
@@ -1466,7 +1501,12 @@ function jumpToHit({ item, tab }: SearchHit): void {
   const pos = ta.value.toLowerCase().indexOf(query);
   requestAnimationFrame(() => {
     ta.focus();
-    if (pos >= 0) ta.setSelectionRange(pos, pos + query.length);
+    if (pos >= 0) {
+      ta.setSelectionRange(pos, pos + query.length);
+      const lineIndex = ta.value.slice(0, pos).split('\n').length - 1;
+      const approxLineHeight = Math.max(16, item.fontSize * 1.4);
+      ta.scrollTop = Math.max(0, lineIndex * approxLineHeight - ta.clientHeight / 3);
+    }
   });
 }
 

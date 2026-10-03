@@ -259,6 +259,8 @@ body { display: flex; flex-direction: column; }
 .tab .title { overflow: hidden; text-overflow: ellipsis; }
 .tab:hover { opacity: 0.9; background: rgba(255, 255, 255, 0.3); }
 .tab.active { opacity: 1; background: var(--c2); border-bottom-color: transparent; font-weight: 600; }
+.tab.dragging { opacity: 0.35; }
+.tab.drag-over { background: rgba(255, 255, 255, 0.45); outline: 2px dashed var(--accent); }
 .tab.hit { box-shadow: inset 0 -3px 0 var(--accent); }
 .tab .close {
   display: none;
