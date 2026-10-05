@@ -34,10 +34,18 @@ try {
   run(process.execPath, [tsc, '-p', 'tsconfig.main.json']);
   run(process.execPath, [tsc, '-p', 'tsconfig.renderer.json']);
   const packager = path.join(root, 'node_modules', '@electron', 'packager', 'bin', 'electron-packager.mjs');
-  run(process.execPath, [packager,
+  const packagerArgs = [
     '.', 'NotePalette', '--platform=win32', '--arch=x64', '--out=release', '--overwrite', '--prune=true',
     '--icon=icon.ico', '--ignore=^/(src|release|scripts|tests|docs|tsconfig.*|HANDOVER.md|.gitignore)',
-  ]);
+  ];
+  // Electron本体ZIPをローカルキャッシュに置いておくと、電子パッケージャーが毎回行う
+  // チェックサム検証用のネットワーク取得(失敗しやすい)を完全に省略できる。
+  // 無ければ通常どおりダウンロードする。
+  const electronZipDir = path.join(root, '.electron-cache');
+  const electronVersion = require(path.join(root, 'node_modules', 'electron', 'package.json')).version;
+  const zipPath = path.join(electronZipDir, `electron-v${electronVersion}-win32-x64.zip`);
+  if (fs.existsSync(zipPath)) packagerArgs.push(`--electron-zip-dir=${electronZipDir}`);
+  run(process.execPath, [packager, ...packagerArgs]);
   // Chromium の言語パックは日本語と英語(フォールバック)だけ残す。UI文言はアプリ側で持つため影響しない
   const localesDir = path.join(appDir, 'locales');
   for (const name of fs.readdirSync(localesDir)) {

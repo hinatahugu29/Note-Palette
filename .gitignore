@@ -1,6 +1,7 @@
 node_modules/
 dist/
 release/
+.electron-cache/
 
 # Logs and local environment files
 *.log
