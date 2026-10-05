@@ -1774,6 +1774,10 @@ function bindGlobalEvents(): void {
       e.preventDefault();
       const item = activeItem();
       if (item) archiveItem(item);
+    } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
+      e.preventDefault();
+      const item = activeItem();
+      if (item) void detachItem(item);
     } else if (e.ctrlKey && e.key.toLowerCase() === 'n') {
       e.preventDefault();
       addPanel();
