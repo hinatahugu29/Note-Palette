@@ -85,7 +85,8 @@
     }, '追加したページが見える位置へのスクロール');
     p2.style.width = originalWidth;
     const firstPage = p2.querySelector('.tab');
-    firstPage.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    firstPage.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    firstPage.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await waitFor(() => firstPage.querySelector('input'), 'ページ名の編集開始');
     const pageName = firstPage.querySelector('input');
     pageName.value = 'アイデア';
@@ -202,13 +203,29 @@
     document.getElementById('trash-close').click();
     await w(100);
     document.getElementById('btn-archive').click();
-    await waitFor(() => document.querySelectorAll('#archive-list .trash-row').length > 0, '収納一覧');
-    steps.archivedPages = [...document.querySelectorAll('#archive-list .trash-meta')].map((m) => m.textContent);
-    document.querySelector('#archive-list .trash-row button').click();
+    await waitFor(() => document.querySelectorAll('#archive-list .archive-chip').length > 0, '収納一覧');
+    steps.archivedPages = [...document.querySelectorAll('#archive-list .archive-chip-meta')].map((m) => m.textContent);
+    document.querySelector('#archive-list .archive-chip').click();
     await waitFor(() => panelByTitle('ノート 2 のコピー'), '収納からボードへ戻す');
     steps.afterUnarchiveTabs = [...panelByTitle('ノート 2 のコピー').querySelectorAll('.tab .title')].map((t) => t.textContent);
     document.getElementById('archive-close').click();
     await w(100);
+
+    // Ctrl+Shift+A で収納、ピン留めでドックを開いたままにできる
+    key('a', { ctrlKey: true, shiftKey: true });
+    await waitFor(() => !panelByTitle('ノート 2 のコピー'), 'ショートカットでの収納');
+    document.getElementById('archive-pin').click();
+    await w(100);
+    steps.archivePinnedState = document.getElementById('archive-pin').getAttribute('aria-pressed');
+    steps.archiveDockOpenAfterPin = document.getElementById('archive-dock').classList.contains('open');
+    document.body.click();
+    await w(100);
+    steps.archiveDockStaysOpenWhenPinned = document.getElementById('archive-dock').classList.contains('open');
+    document.getElementById('archive-pin').click();
+    await w(100);
+    document.body.click();
+    await w(100);
+    steps.archiveDockClosesAfterUnpin = document.getElementById('archive-dock').classList.contains('open');
 
     // ゴミ箱を空にする
     document.getElementById('btn-trash').click();

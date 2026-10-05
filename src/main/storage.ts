@@ -33,7 +33,7 @@ function stamp(): string {
 export function defaultBoard(): Board {
   return {
     version: 1,
-    view: { layout: 'free', maximizedId: null, zoom: 1 },
+    view: { layout: 'free', maximizedId: null, zoom: 1, archivePinned: false },
     images: [],
     items: [
       {

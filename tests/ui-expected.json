@@ -51,8 +51,8 @@
       "color": "c1",
       "flags": [],
       "tabs": [
-        "アイデア×",
-        "ページ2×*"
+        "アイデア×*",
+        "ページ2×"
       ],
       "fontSize": "14",
       "pinned": false,
@@ -112,8 +112,8 @@
         "current"
       ],
       "tabs": [
-        "アイデア×",
-        "ページ2×*"
+        "アイデア×*",
+        "ページ2×"
       ],
       "fontSize": "14",
       "pinned": false,
@@ -130,10 +130,10 @@
     }
   ],
   "tabCycle": [
-    "ページ2×",
     "アイデア×",
     "ページ2×",
-    "アイデア×"
+    "アイデア×",
+    "ページ2×"
   ],
   "afterFontPinColor": [
     {
@@ -160,8 +160,8 @@
       "color": "c1",
       "flags": [],
       "tabs": [
-        "アイデア×",
-        "ページ2×*"
+        "アイデア×*",
+        "ページ2×"
       ],
       "fontSize": "14",
       "pinned": false,
@@ -263,8 +263,8 @@
       "color": "c1",
       "flags": [],
       "tabs": [
-        "アイデア×",
-        "ページ2×*"
+        "アイデア×*",
+        "ページ2×"
       ],
       "fontSize": "14",
       "pinned": false,
@@ -370,8 +370,8 @@
         "tile"
       ],
       "tabs": [
-        "アイデア×",
-        "ページ2×*"
+        "アイデア×*",
+        "ページ2×"
       ],
       "fontSize": "14",
       "pinned": false,
@@ -479,8 +479,8 @@
       "color": "c1",
       "flags": [],
       "tabs": [
-        "アイデア×",
-        "ページ2×*"
+        "アイデア×*",
+        "ページ2×"
       ],
       "fontSize": "14",
       "pinned": false,
@@ -585,6 +585,10 @@
     "ページ2",
     "アイデア"
   ],
+  "archivePinnedState": "true",
+  "archiveDockOpenAfterPin": true,
+  "archiveDockStaysOpenWhenPinned": true,
+  "archiveDockClosesAfterUnpin": false,
   "emptyTrashState": "復元できる項目はありません",
   "status": "保存済み",
   "errors": []

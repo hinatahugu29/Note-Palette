@@ -41,7 +41,22 @@ body { display: flex; flex-direction: column; }
   cursor: pointer;
 }
 #toolbar button:hover { background: #3b3e45; }
-#btn-trash, #btn-archive { width: 30px; padding: 0; }
+#btn-trash, #btn-archive { width: 30px; padding: 0; position: relative; }
+.count-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  line-height: 15px;
+  text-align: center;
+}
+.count-badge[hidden] { display: none; }
 #view-menu-wrap, #help-wrap, #data-wrap { position: relative; }
 #help-wrap > button { width: 28px; padding: 0; }
 #data-wrap > button { width: 30px; padding: 0; }
@@ -378,7 +393,70 @@ body { display: flex; flex-direction: column; }
 .dialog > header button.text-btn:hover { background: rgba(255, 100, 100, 0.15); }
 .dialog > header button.text-btn:disabled { opacity: 0.4; cursor: default; }
 .dialog > p { margin: 8px 0 12px; color: var(--muted); }
-#trash-list, #archive-list, #backup-list { max-height: 480px; overflow-y: auto; }
+#trash-list, #backup-list { max-height: 480px; overflow-y: auto; }
+
+/* ---- 収納ドック(画面下からスライドする帯) ---- */
+#archive-dock {
+  position: fixed;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  z-index: 300000;
+  display: flex;
+  flex-direction: column;
+  max-height: 140px;
+  border: 1px solid #4a4d55;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: #27292e;
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.45);
+  transform: translateY(calc(100% - 0px));
+  transition: transform 0.18s ease;
+  pointer-events: none;
+}
+#archive-dock.open { transform: translateY(0); pointer-events: auto; }
+#archive-dock > header {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 10px;
+  flex: none;
+  border-bottom: 1px solid #3a3c42;
+}
+#archive-dock-title { flex: 1; font-size: 12px; color: var(--muted); }
+#archive-dock > header button {
+  width: 24px; height: 24px; border: none; border-radius: 4px;
+  background: transparent; color: var(--fg); cursor: pointer;
+}
+#archive-dock > header button:hover { background: #3b3e45; }
+#archive-pin { opacity: 0.45; }
+#archive-pin[aria-pressed="true"] { opacity: 1; background: rgba(255, 255, 255, 0.18); }
+#archive-list {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 8px;
+  overflow-x: auto;
+}
+.archive-empty { padding: 6px 2px; color: var(--muted); font-size: 12px; }
+.archive-chip {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 110px;
+  max-width: 160px;
+  padding: 6px 10px;
+  border: 1px solid #4a4d55;
+  border-radius: 6px;
+  background: #313338;
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+}
+.archive-chip:hover { background: #3b3e45; border-color: var(--accent); }
+.archive-chip-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.archive-chip-meta { color: var(--muted); font-size: 10px; }
 .trash-row {
   display: flex;
   align-items: center;

@@ -69,8 +69,10 @@ const panelMenuEl = must<HTMLElement>('panel-menu');
 const trashDialogEl = must<HTMLElement>('trash-dialog');
 const trashListEl = must<HTMLElement>('trash-list');
 const trashEmptyAllBtn = must<HTMLButtonElement>('trash-empty-all');
-const archiveDialogEl = must<HTMLElement>('archive-dialog');
+const archiveDockEl = must<HTMLElement>('archive-dock');
 const archiveListEl = must<HTMLElement>('archive-list');
+const archiveBadgeEl = must<HTMLElement>('archive-badge');
+const archivePinEl = must<HTMLButtonElement>('archive-pin');
 const dataMenuEl = must<HTMLElement>('data-menu');
 const backupDialogEl = must<HTMLElement>('backup-dialog');
 const backupListEl = must<HTMLElement>('backup-list');
@@ -154,23 +156,27 @@ async function openTrash(): Promise<void> {
   }
 }
 
-function openArchive(): void {
-  archiveDialogEl.hidden = false;
+function updateArchiveBadge(): void {
+  const count = board.items.filter((item) => item.archived).length;
+  archiveBadgeEl.textContent = String(count);
+  archiveBadgeEl.hidden = count === 0;
+}
+
+function renderArchiveDock(): void {
   archiveListEl.textContent = '';
   const archived = board.items.filter((item) => item.archived);
   if (archived.length === 0) {
-    archiveListEl.appendChild(el('div', 'trash-empty', '収納中のノートはありません'));
+    archiveListEl.appendChild(el('div', 'archive-empty', '収納中のノートはありません'));
     return;
   }
   for (const item of archived) {
-    const row = el('div', 'trash-row');
-    const info = el('div', 'trash-info');
-    info.append(
-      el('div', 'trash-name', item.title),
-      el('div', 'trash-meta', `${item.tabs.length} ページ`),
+    const chip = el('button', 'archive-chip');
+    chip.title = `${item.title}(${item.tabs.length}ページ)クリックでボードへ戻す`;
+    chip.append(
+      el('span', 'archive-chip-title', item.title),
+      el('span', 'archive-chip-meta', `${item.tabs.length} ページ`),
     );
-    const restore = el('button', undefined, 'ボードへ戻す');
-    restore.addEventListener('click', () => {
+    chip.addEventListener('click', () => {
       item.archived = false;
       item.z = topZ() + 1;
       createView(item);
@@ -178,12 +184,28 @@ function openArchive(): void {
       setActive(item);
       activateTab(item, item.activeTab, true);
       markBoardDirty();
-      openArchive();
+      renderArchiveDock();
+      updateArchiveBadge();
       showNotice('ノートをボードへ戻しました');
     });
-    row.append(info, restore);
-    archiveListEl.appendChild(row);
+    archiveListEl.appendChild(chip);
   }
+}
+
+function setArchiveDockOpen(open: boolean): void {
+  if (open) renderArchiveDock();
+  archiveDockEl.classList.toggle('open', open);
+}
+
+function toggleArchiveDock(): void {
+  setArchiveDockOpen(!archiveDockEl.classList.contains('open'));
+}
+
+function toggleArchivePinned(): void {
+  board.view.archivePinned = !board.view.archivePinned;
+  archivePinEl.setAttribute('aria-pressed', String(board.view.archivePinned));
+  markBoardDirty();
+  if (board.view.archivePinned) setArchiveDockOpen(true);
 }
 
 async function openBackups(): Promise<void> {
@@ -349,6 +371,8 @@ async function restoreTrashEntry(trashName: string): Promise<void> {
   }
   await api.saveBoard(board);
   runSearch(false);
+  updateArchiveBadge();
+  if (archiveDockEl.classList.contains('open')) renderArchiveDock();
   showNotice(message);
 }
 
@@ -648,13 +672,28 @@ function renderTabs(view: PanelView): void {
       });
       t.appendChild(close);
     }
-    t.draggable = true;
+    // draggable を常時 true にすると、素早い連続クリックの2回目を
+    // ブラウザがドラッグ開始と誤認し、dblclick が届かなくなる。
+    // mousedown から一定時間経ってから初めて draggable にすることで、
+    // ダブルクリックは奪われず、長押し後の移動だけドラッグとして扱う。
+    t.draggable = false;
+    let armTimer: number | undefined;
+    const disarmDrag = () => {
+      window.clearTimeout(armTimer);
+      t.draggable = false;
+    };
+    t.addEventListener('mousedown', () => {
+      armTimer = window.setTimeout(() => (t.draggable = true), 150);
+    });
+    t.addEventListener('mouseup', disarmDrag);
+    t.addEventListener('mouseleave', disarmDrag);
     t.addEventListener('dragstart', (e) => {
       draggingTabInfo = { itemId: item.id, tabId: tab.id };
       e.dataTransfer?.setData('text/plain', tab.id);
       t.classList.add('dragging');
     });
     t.addEventListener('dragend', () => {
+      disarmDrag();
       draggingTabInfo = null;
       t.classList.remove('dragging');
       tabsEl.querySelectorAll('.tab.drag-over').forEach((el) => el.classList.remove('drag-over'));
@@ -681,10 +720,20 @@ function renderTabs(view: PanelView): void {
         markBoardDirty();
       }
     });
-    t.addEventListener('click', () => activateTab(item, tab.id, true));
-    t.addEventListener('dblclick', (e) => {
-      e.stopPropagation();
-      beginRename(item, tab, t);
+    // 環境によっては draggable 要素への素早い連続クリックで、ブラウザ標準の
+    // dblclick が発生しないことがある。タイムスタンプ差による自前判定にして、
+    // ネイティブ dblclick の成立有無に左右されないようにする。
+    let lastClickAt = 0;
+    t.addEventListener('click', (e) => {
+      const now = Date.now();
+      if (now - lastClickAt < 400) {
+        lastClickAt = 0;
+        e.stopPropagation();
+        beginRename(item, tab, t);
+        return;
+      }
+      lastClickAt = now;
+      activateTab(item, tab.id, true);
     });
     tabsEl.appendChild(t);
   }
@@ -697,6 +746,10 @@ function activateTab(item: Item, tabId: string, focus: boolean): void {
     item.activeTab = tabId;
     markBoardDirty();
   }
+  // どのノートが「今触っているノート」かは、後続の操作（Ctrl+Dやショートカット）が
+  // 同期的に参照するため、ここで即時に確定させる。rAF 内まで遅らせると、別の
+  // クリックで既に確定した setActive を古いコールバックが後から上書きしてしまう。
+  if (focus) setActive(item);
   // クリックのたびにページDOMを作り直すと、1回目と2回目のクリック対象が
   // 別要素になり dblclick が成立しない。選択状態だけを更新する。
   let activeTabEl: HTMLElement | undefined;
@@ -707,6 +760,11 @@ function activateTab(item: Item, tabId: string, focus: boolean): void {
   for (const [id, area] of view.areas) area.classList.toggle('active', id === tabId);
   const ta = view.areas.get(tabId)!;
   const tab = item.tabs.find((t) => t.id === tabId)!;
+  // ta.focus() を rAF まで遅らせると、フォーカスに連動する setActive（root の
+  // focusin ハンドラ）が後から発火し、その間に行われた別の操作の setActive を
+  // 上書きしてしまうことがある。フォーカス移動はレイアウト計測に依存しないため
+  // 同期的に行う。スクロール位置の調整だけ、計測が必要な rAF 側に残す。
+  if (focus) ta.focus();
   requestAnimationFrame(() => {
     if (activeTabEl) {
       const tabsRect = view.tabsEl.getBoundingClientRect();
@@ -715,10 +773,6 @@ function activateTab(item: Item, tabId: string, focus: boolean): void {
       else if (activeRect.right > tabsRect.right) view.tabsEl.scrollLeft += activeRect.right - tabsRect.right;
     }
     ta.scrollTop = tab.scroll;
-    if (focus) {
-      setActive(item);
-      ta.focus();
-    }
     updatePanelMetrics(view);
   });
 }
@@ -1204,6 +1258,8 @@ function archiveItem(item: Item): void {
   layoutAll();
   runSearch(false);
   markBoardDirty();
+  updateArchiveBadge();
+  if (archiveDockEl.classList.contains('open')) renderArchiveDock();
   showNotice('ノートを収納しました');
 }
 
@@ -1571,10 +1627,14 @@ function bindGlobalEvents(): void {
     if (saveError) void saveNow();
   });
   must('btn-new').addEventListener('click', () => addPanel());
-  must('btn-archive').addEventListener('click', openArchive);
-  must('archive-close').addEventListener('click', () => (archiveDialogEl.hidden = true));
-  archiveDialogEl.addEventListener('click', (e) => {
-    if (e.target === archiveDialogEl) archiveDialogEl.hidden = true;
+  must('btn-archive').addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleArchiveDock();
+  });
+  must('archive-close').addEventListener('click', () => setArchiveDockOpen(false));
+  archivePinEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleArchivePinned();
   });
   must('btn-data').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -1630,6 +1690,9 @@ function bindGlobalEvents(): void {
     if (!(e.target as HTMLElement).closest('#data-wrap')) dataMenuEl.hidden = true;
     if (!(e.target as HTMLElement).closest('#search-wrap')) searchResultsEl.hidden = true;
     if (!(e.target as HTMLElement).closest('#panel-menu, .actions')) panelMenuEl.hidden = true;
+    if (!board.view.archivePinned && !(e.target as HTMLElement).closest('#archive-dock, #btn-archive')) {
+      setArchiveDockOpen(false);
+    }
   });
   panelMenuEl.addEventListener('click', (e) => {
     const action = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
@@ -1707,6 +1770,10 @@ function bindGlobalEvents(): void {
     } else if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'd') {
       e.preventDefault();
       duplicateActiveItem();
+    } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      const item = activeItem();
+      if (item) archiveItem(item);
     } else if (e.ctrlKey && e.key.toLowerCase() === 'n') {
       e.preventDefault();
       addPanel();
@@ -1716,8 +1783,8 @@ function bindGlobalEvents(): void {
     } else if (e.key === 'Escape') {
       if (!backupDialogEl.hidden) {
         backupDialogEl.hidden = true;
-      } else if (!archiveDialogEl.hidden) {
-        archiveDialogEl.hidden = true;
+      } else if (!board.view.archivePinned && archiveDockEl.classList.contains('open')) {
+        setArchiveDockOpen(false);
       } else if (!trashDialogEl.hidden) {
         trashDialogEl.hidden = true;
       } else if (!helpMenu.hidden) {
@@ -1809,6 +1876,9 @@ async function main(): Promise<void> {
     if (bytes) createImageView(img, bytes);
   }
   layoutAll();
+  updateArchiveBadge();
+  archivePinEl.setAttribute('aria-pressed', String(board.view.archivePinned));
+  if (board.view.archivePinned) setArchiveDockOpen(true);
   for (const item of board.items.filter((candidate) => !candidate.archived && candidate.mode === 'board')) activateTab(item, item.activeTab, false);
   for (const item of board.items.filter((candidate) => !candidate.archived && candidate.mode === 'detached')) {
     void api.openDetached(item.id);

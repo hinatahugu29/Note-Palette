@@ -57,6 +57,7 @@ export interface View {
   layout: 'free' | 'tile';
   maximizedId: string | null;
   zoom: number;
+  archivePinned: boolean;
 }
 
 export interface Board {
