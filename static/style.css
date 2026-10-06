@@ -518,11 +518,13 @@ body { display: flex; flex-direction: column; }
 
 .resize {
   position: absolute;
-  right: 0; bottom: 0;
   width: 16px; height: 16px;
-  cursor: nwse-resize;
   background: linear-gradient(135deg, transparent 50%, rgba(0, 0, 0, 0.3) 50%, rgba(0, 0, 0, 0.3) 58%, transparent 58%, transparent 70%, rgba(0, 0, 0, 0.3) 70%, rgba(0, 0, 0, 0.3) 78%, transparent 78%);
 }
+.resize-se { right: 0; bottom: 0; cursor: nwse-resize; }
+.resize-nw { left: 0; top: 0; cursor: nwse-resize; transform: rotate(180deg); }
+.resize-ne { right: 0; top: 0; cursor: nesw-resize; transform: rotate(90deg); }
+.resize-sw { left: 0; bottom: 0; cursor: nesw-resize; transform: rotate(-90deg); }
 .panel.tile .resize, .panel.max .resize { display: none; }
 
 /* ---- 画像アイテム ---- */

@@ -129,8 +129,12 @@
 
     // ドラッグ移動・リサイズ
     await drag(p3.querySelector('.header .spacer'), 120, 160);
-    await drag(p3.querySelector('.resize'), 60, 40);
+    await drag(p3.querySelector('.resize-se'), 60, 40);
     steps.afterDragResize = summarize();
+
+    // 左上ハンドルでのリサイズ(右下を固定したまま左上へ拡張)
+    await drag(p3.querySelector('.resize-nw'), -30, -20);
+    steps.afterNwResize = summarize();
 
     // タイル表示と解除
     document.getElementById('btn-layout').click();

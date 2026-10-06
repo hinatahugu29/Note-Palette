@@ -536,7 +536,6 @@ function createView(item: Item): PanelView {
   const footerEl = el('div', 'panel-footer');
   const countEl = el('span', 'count-info', '0文字 1行');
   footerEl.appendChild(countEl);
-  const resize = el('div', 'resize');
 
   const btn = (label: string, title: string, fn: () => void): HTMLButtonElement => {
     const b = el('button', undefined, label);
@@ -579,7 +578,7 @@ function createView(item: Item): PanelView {
     { passive: false },
   );
   header.append(titleEl, tabsEl, addTab, spacer, actions);
-  root.append(header, bodyEl, footerEl, resize);
+  root.append(header, bodyEl, footerEl, ...createResizeHandles(item));
   boardEl.appendChild(root);
 
   const view: PanelView = { item, el: root, titleEl, tabsEl, bodyEl, countEl, fontSizeEl, pinBtn, areas: new Map() };
@@ -595,7 +594,6 @@ function createView(item: Item): PanelView {
   );
   root.addEventListener('focusin', () => setActive(item));
   setupDrag(item, root, header);
-  setupResize(item, resize);
   header.addEventListener('dblclick', (e) => {
     const t = e.target as HTMLElement;
     if (t.closest('button') || t.closest('.tab') || t.closest('.item-title') || t.closest('input')) return;
@@ -956,27 +954,54 @@ function reorder(from: Box, to: Box): void {
   markBoardDirty();
 }
 
-function setupResize(item: Box, handle: HTMLElement): void {
+type ResizeCorner = 'nw' | 'ne' | 'sw' | 'se';
+
+function setupResize(item: Box, handle: HTMLElement, corner: ResizeCorner = 'se'): void {
+  const west = corner === 'nw' || corner === 'sw';
+  const north = corner === 'nw' || corner === 'ne';
   handle.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     e.preventDefault();
     const r = freeRect(item);
     Object.assign(item, { x: r.x, y: r.y, w: r.w, h: r.h });
     const { w: bw, h: bh } = boardSize();
+    const anchorRight = r.x + r.w;
+    const anchorBottom = r.y + r.h;
     const ex = edgesOf(item, 'x');
     const ey = edgesOf(item, 'y');
     const snapEnd = (end: number, edges: number[]) => edges.find((v) => Math.abs(end - v) < SNAP) ?? end;
     trackPointer(
       e,
       (dx, dy) => {
-        const right = snapEnd(item.x + r.w + dx, ex);
-        const bottom = snapEnd(item.y + r.h + dy, ey);
-        item.w = clamp(right - item.x, MIN_W, bw - item.x);
-        item.h = clamp(bottom - item.y, MIN_H, bh - item.y);
+        if (west) {
+          const left = clamp(snapEnd(r.x + dx, ex), 0, anchorRight - MIN_W);
+          item.x = left;
+          item.w = anchorRight - left;
+        } else {
+          const right = snapEnd(r.x + r.w + dx, ex);
+          item.w = clamp(right - item.x, MIN_W, bw - item.x);
+        }
+        if (north) {
+          const top = clamp(snapEnd(r.y + dy, ey), 0, anchorBottom - MIN_H);
+          item.y = top;
+          item.h = anchorBottom - top;
+        } else {
+          const bottom = snapEnd(r.y + r.h + dy, ey);
+          item.h = clamp(bottom - item.y, MIN_H, bh - item.y);
+        }
         layoutAll();
       },
       markBoardDirty,
     );
+  });
+}
+
+/** 四隅ぶんのリサイズハンドルを作り、ドラッグ操作まで配線して返す */
+function createResizeHandles(item: Box): HTMLElement[] {
+  return (['nw', 'ne', 'sw', 'se'] as const).map((corner) => {
+    const handle = el('div', `resize resize-${corner}`);
+    setupResize(item, handle, corner);
+    return handle;
   });
 }
 
@@ -1342,7 +1367,6 @@ function createImageView(item: ImageItem, bytes: ArrayBuffer): void {
   const img = el('img');
   img.src = url;
   img.draggable = false;
-  const resize = el('div', 'resize');
 
   const btn = (label: string, title: string, fn: () => void): HTMLButtonElement => {
     const b = el('button', undefined, label);
@@ -1357,13 +1381,12 @@ function createImageView(item: ImageItem, bytes: ArrayBuffer): void {
   btn('⤢', '最大化 / 元に戻す (Esc)', () => toggleMax(item)).classList.add('max-btn');
   btn('×', 'この画像を削除(ゴミ箱フォルダへ移動)', () => void removeImage(item));
   header.append(spacer, actions);
-  root.append(header, img, resize);
+  root.append(header, img, ...createResizeHandles(item));
   boardEl.appendChild(root);
   imgViews.set(item.id, { item, el: root, url });
 
   root.addEventListener('pointerdown', () => bringToFront(item), true);
   setupDrag(item, root, header);
-  setupResize(item, resize);
   header.addEventListener('dblclick', (e) => {
     if (!(e.target as HTMLElement).closest('button')) toggleMax(item);
   });
