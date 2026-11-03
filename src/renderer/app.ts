@@ -762,7 +762,10 @@ function activateTab(item: Item, tabId: string, focus: boolean): void {
   // focusin ハンドラ）が後から発火し、その間に行われた別の操作の setActive を
   // 上書きしてしまうことがある。フォーカス移動はレイアウト計測に依存しないため
   // 同期的に行う。スクロール位置の調整だけ、計測が必要な rAF 側に残す。
-  if (focus) ta.focus();
+  // preventScroll: カーソルが末尾にある状態でフォーカスすると、ブラウザが
+  // カーソル位置を可視化しようとして自動スクロールし、直後の scrollTop 復元を
+  // 上書きしてしまうため、その自動スクロールを無効化する。
+  if (focus) ta.focus({ preventScroll: true });
   requestAnimationFrame(() => {
     if (activeTabEl) {
       const tabsRect = view.tabsEl.getBoundingClientRect();
